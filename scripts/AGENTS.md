@@ -17,6 +17,9 @@
   wide desktop, including landscape — and measures each one: horizontal overflow, clipped labels,
   touch-target size, stacked versus side-by-side layout, and card width. It writes one screenshot
   per representative size for human review.
+- `economy-report.mjs` prints the milestone times and progress curve produced by the deterministic
+  simulation against the real `src/data/` values, for human review of a retune. It is a report, not
+  a gate: it always exits 0. Run it after any pacing change.
 
 ## Local Contracts
 - **One browser context per scenario.** Pages in a context share `localStorage`, and every page
@@ -34,7 +37,12 @@
   few samples wide, so a check that stops on the first sighting of an event name will flake. Sample
   until the measured effect is confirmed, and put the measured values in the failure detail so a
   failure is diagnosable rather than cryptic.
-- Scripts here are verification only. They never ship in `dist/` and never import runtime code.
+- **Seed browser scenarios from `src/data/`, never from a hardcoded value.** The smoke scenario's
+  rich save originally pinned `currency: 5_000_000`; a pacing retune raised the depth ladder past
+  it, so the scripted run stopped short of the deepest tier and the gate failed on the game's own
+  balance change. `browser-smoke.mjs` now derives its seeded currency from `depthTierCost()`.
+- Scripts here are verification only. They never ship in `dist/`. Reading `src/data/` for a tuning
+  value is expected; importing runtime behaviour for an assertion is not.
 - The browser binary stays project-local: the harness sets `PLAYWRIGHT_BROWSERS_PATH=0` before
   Playwright loads, so nothing is downloaded outside the project.
 - **Verification-only build constants must be swapped in at build time** via `define`, never read

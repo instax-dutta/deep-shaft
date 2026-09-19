@@ -26,7 +26,7 @@
 | P9 | Game-feel and UX polish | Pending |
 | P10 | First-run tutorial | Pending |
 | P11 | Audio layer | Pending |
-| P12 | Economy simulation and rebalance | Pending |
+| P12 | Economy simulation and rebalance | Complete |
 | P13 | Big-number implementation swap | Complete |
 | P14 | Cross-browser, soak, performance QA | Pending |
 | P15 | Resilience and diagnostics | Pending |
@@ -99,6 +99,39 @@ saves through the pure transfer functions and resets through a reusable confirm 
 the full loss and dispatches nothing until confirmed.
 
 Evidence: full suite 485 passed (38 files); build clean.
+
+### P12 — economy simulation and rebalance
+
+Pacing is now measured rather than asserted. `src/core/simulation.js` plays the real production,
+drill, depth, resource, and prestige rules against two deterministic reference strategies, and
+`tests/core/simulation.test.js` fails if a milestone leaves its approved window. The reference
+lines are expectation-based, so a pacing result is a property of `src/data/` rather than of a lucky
+roll.
+
+**Approved pacing targets** (implemented as proposed; changing one is an explicit edit to the plan
+and the test table together):
+
+| Milestone | Approved window | Greedy | Balanced |
+|---|---|---|---|
+| Depth 2 | 10–20 min | 10.9m | 14.8m |
+| Depth 3 | 1–2 h | 65.6m | 93.8m |
+| Depth 4 | 4–8 h | 5.54h | 7.82h |
+| Depth 5 | 24–48 h | 28.87h | 41.22h |
+| First prestige available | within 4 h | 15.4m | 19.2m |
+| Offline at the 24 h cap | ≤ 50% of a day of active play | 0.02%–15.1% by state | — |
+
+**Rebalance.** The old ladder was mathematical, not played: every dig multiplied income by roughly
+20–50x while each tier cost only 12x more, so a greedy player reached the floor in 2.6 minutes. The
+retuned economy raises the depth ladder (`baseUnlockCost` 500 → 4,000, `unlockCostGrowthRate`
+12 → 300) and slows the per-dig income jump (`production.depthOutputGrowth` 3 → 2, gem value growth
+3 → 2, rare mineral growth 6 → 2.5). Depth 1 earning rates, drill curves, workers, events, and the
+prestige formula are unchanged. `scripts/economy-report.mjs` prints the resulting curve for human
+review.
+
+Evidence: full suite 511 passed (42 files); `npm run gate` green (unit tests, build,
+58/58 smoke + 7/7 event, 49/49 responsive). The gate caught one real defect: the browser smoke
+scenario seeded `currency: 5_000_000` by hand, which the new ladder outgrew, so the scripted run
+stopped short of the deepest tier. It now derives its seeded currency from `depthTierCost()`.
 
 ### P7 — accessibility hardening
 

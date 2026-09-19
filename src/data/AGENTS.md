@@ -22,6 +22,18 @@
 - `config.numbers.implementation` selects the magnitude backend (`'big'` default, `'float'` for
   debugging). It is the only switch for the numeric representation; no gameplay module may branch
   on it.
+- Pacing here is defended, not placeholder, and the approved P12 windows live in
+  `tests/core/simulation.test.js`: Depth 2 in 10–20 minutes, Depth 3 in 1–2 hours, Depth 4 in
+  4–8 hours, Depth 5 in 24–48 hours, first prestige available within 4 hours, and offline catch-up
+  at the 24h cap a minor share of a day of active play. Changing one of those numbers is an
+  explicit edit to the plan and that table together, never a quiet edit to a tuning value.
+- The pacing values that carry those windows are `depth.baseUnlockCost`,
+  `depth.unlockCostGrowthRate`, `production.depthOutputGrowth`,
+  `economy.resourceValueGrowthPerTier`, `prestige.thresholdCurrency`, `offline.capSeconds`, and
+  `simulation.*`. Retuning any of them means re-running `tests/core/simulation.test.js` and the
+  `tests/core/depth.test.js` data tests, then re-reading `node scripts/economy-report.mjs`.
+- Anything that needs the depth ladder — tests and the browser harness included — reads
+  `depthTierCost()` from here instead of restating a cost, so a retune never requires a test edit.
 
 ## Work Guidance
 - Prefer frozen/plain data objects that are easy to inspect in tests.

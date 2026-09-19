@@ -32,15 +32,15 @@ export const config = deepFreeze({
      */
     resourceValueGrowthPerTier: {
       ore: 1,
-      gems: 3,
-      rare: 6,
+      gems: 2,
+      rare: 2.5,
     },
   },
 
   production: {
     manualOrePerExtraction: 1,
     /** Multiplies all drill output for each depth tier below Tier 1. */
-    depthOutputGrowth: 3,
+    depthOutputGrowth: 2,
   },
 
   workers: {
@@ -91,9 +91,9 @@ export const config = deepFreeze({
 
   depth: {
     tierCount: 5,
-    baseUnlockCost: 500,
+    baseUnlockCost: 4_000,
     /** cost = baseUnlockCost * growthRate^(tier - 1) */
-    unlockCostGrowthRate: 12,
+    unlockCostGrowthRate: 300,
   },
 
   persistence: {
@@ -112,6 +112,22 @@ export const config = deepFreeze({
   automation: {
     /** Auto-buy stops raising a single drill past this owned count, so it can never run away. */
     autoBuySafetyBound: 500,
+  },
+
+  simulation: {
+    /**
+     * Active-play taps per second the simulated opening is allowed while the mine owns no drills.
+     * This bounds the start-up burst so pacing stays a property of the economy, not of a strategy
+     * that can tap an unlimited number of times.
+     */
+    manualTapsPerSecond: 3,
+    /**
+     * The balanced strategy only digs once it holds this multiple of the dig cost, so it enters
+     * each tier with a larger drill base. Above 1 it is strictly slower than the greedy line.
+     */
+    balancedDigReserve: 1.5,
+    /** Iteration bound for one strategy step, so a degenerate curve can never spin forever. */
+    strategyGuard: 5_000,
   },
 
   numbers: {

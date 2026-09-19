@@ -40,6 +40,14 @@
   gated twice (upgrade owned *and* player toggle on) and runs the same commands a player issues,
   so it can never overspend or exceed an affordability rule. The live tick and the offline batch
   both call `runAutomation`, so there is one behaviour, not two.
+- `simulation.js` owns the pure economy simulator: `STRATEGIES` (`greedy`, `balanced`) and
+  `simulateRun({ strategy, maxSeconds, stepSeconds, state, sampleSeconds, prestigeAt })`, returning
+  `{ milestones, series, finalState, ticks, prestiges }`. It plays the real production, drill,
+  depth, resource, and prestige rules, so a pacing claim is defended against the economy itself
+  rather than against a parallel model that could drift from it. Each sampled point carries
+  `totalDrills`, which is what makes the pre-automation opening observable. The reference
+  strategies are expectation-based and never consume the injected random source: a pacing number
+  must be a property of `src/data/`, not of one lucky roll.
 - Time-dependent functions accept elapsed seconds or an injected clock value.
 - Random outcomes accept an injected random source.
 - Core commands never mutate data definitions.

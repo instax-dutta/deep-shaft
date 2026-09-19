@@ -21,14 +21,26 @@ const {
   text,
 } = await import('./browser-harness.mjs');
 
+const { config } = await import('../src/data/config.js');
+const { depthTierCost } = await import('../src/data/depthTiers.js');
+
 const PORT = 4319;
 const HOUR_MS = 3_600_000;
 
 const reporter = createReporter('smoke');
 
+/**
+ * Currency that clears the whole depth ladder, read from `src/data/` rather than hardcoded: a
+ * retune must not be able to silently strand the scripted run short of the deepest tier.
+ */
+const ladderCurrency = Array.from(
+  { length: config.depth.tierCount - 1 },
+  (_, index) => depthTierCost(index + 2),
+).reduce((total, cost) => total + cost, 0);
+
 const richSave = {
   schemaVersion: 1,
-  currency: 5_000_000,
+  currency: ladderCurrency * 2,
   depthTier: 1,
   resources: {},
   drills: { 'drill-1': 10 },
@@ -250,7 +262,7 @@ try {
   // whose run already earned well past it. 20M earned credits a x6 multiplier (1 + 20/1 * 0.25).
   const retirementSave = {
     ...richSave,
-    currency: 2_000_000,
+    currency: ladderCurrency,
     depthTier: 4,
     drills: { 'drill-1': 5, 'drill-2': 2 },
     workers: [

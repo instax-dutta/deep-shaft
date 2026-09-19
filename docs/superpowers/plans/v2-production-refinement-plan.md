@@ -943,7 +943,7 @@ unit test. They get a checklist and a human acceptance record instead.
 | CC0 pixel-art pack (sprites, tiles, icons, favicon, PWA icons) | Visual review against `screenshots/`; browser check that assets load and no 404s | Which pack; licensing |
 | Audio assets (SFX) | Human listen test; mute verified by P11 adapter test | Whether sound ships at all |
 | Marketing / store copy, privacy note (localStorage + any analytics) | Human review; legal if analytics is added | Whether analytics ships |
-| Economy target numbers (P12) | Approved in this plan; changing them is an explicit edit | Approve the four windows |
+| Economy target numbers (P12) | Approved in this plan; changing them is an explicit edit | Approved as proposed — implemented by owner instruction ("implement P12 so pacing is defended by tests"); the four windows, the 4h first-prestige bound, and the 24h offline cap shipped as written |
 | Monetization | Spec §13 says out of scope for v1. Do not add ads/IAP without a new spec. | Explicitly re-scope if desired |
 
 For each artifact delivered, append a one-line acceptance note (who approved, when, evidence path).
@@ -975,7 +975,7 @@ For each artifact delivered, append a one-line acceptance note (who approved, wh
 | P9 | Game-feel + UX polish | pending | — | — |
 | P10 | Onboarding | pending | — | — |
 | P11 | Audio | pending | — | — |
-| P12 | Economy rebalance | pending | — | — |
+| P12 | Economy rebalance | complete | +14 | Evidence block P12 |
 | P13 | Big-number swap | complete | +6 | Evidence block P13 |
 | P14 | Cross-browser/soak/perf | pending | — | — |
 | P15 | Resilience/diagnostics | pending | — | — |
@@ -1094,6 +1094,39 @@ DEFECTS FOUND: the trap originally recorded its opener *after* moving focus, so 
 FILES:  src/ui/focusTrap.js (new), src/ui/liveRegion.js (new), src/ui/hud.js (Mine button),
         src/ui/{prestigeModal,confirmModal}.js, src/ui/styles.css, src/main.js.
 DOX:    src/ui/AGENTS.md, tests/AGENTS.md, docs/implementation-status.md.
+
+### Phase 12 — task: a simulation-backed economy rebalance
+RED:    npx vitest --run tests/core/simulation.test.js
+        `Cannot find module '../../src/core/simulation.js'` (all 14 tests uncollected).
+        `node scripts/economy-report.mjs` -> `ERR_MODULE_NOT_FOUND`.
+        Restarted the phase from RED on purpose: the simulator had been written during tuning, and
+        the plan's Iron Law does not allow keeping implementation written before its test.
+GREEN:  14 focused tests pass; full suite 511 pass (42 files); `npm run gate` green
+        (58/58 smoke + 7/7 event, 49/49 responsive).
+MUTATION: (a) flattened the depth ladder (growth 300 -> 20) -> 4 tests failed, including the
+            offline-share bound at 87.6%.
+        (b) removed the tap budget in the opening -> the sell-only monotonicity test failed.
+        (c) made the balanced strategy dig immediately (reserve 1.5 -> 1.0) -> the ordering test
+            failed, which is why that assertion is strict rather than >=.
+        (d) raised the offline cap 24h -> 240h -> the offline-share test failed, but only after it
+            was fixed: it had derived "a day" from the cap itself, so it could not see a cap
+            change. It now compares against a fixed 24h day and pins the cap.
+        (e) dropped `totalDrills` from the sampled curve -> 2 tests failed (all reverted).
+DEFECTS FOUND: the browser smoke scenario hardcoded `currency: 5_000_000`; the retuned ladder
+        outgrew it and the scripted run failed short of the deepest tier (`Deep Gallery`). The
+        seeded currency is now derived from `depthTierCost()`. Also: the tuned value ladder was
+        tuned against a simulator that tapped without a rate limit, which made the opening free
+        money; the opening is now bounded by `config.simulation.manualTapsPerSecond`.
+FILES:  src/core/simulation.js (new), scripts/economy-report.mjs (new),
+        tests/core/simulation.test.js (new), src/data/config.js (rebalance + `simulation.*`),
+        tests/core/depth.test.js (reads the ladder from data instead of restating 500),
+        scripts/browser-smoke.mjs (seeded currency derived from data).
+DOX:    src/core/AGENTS.md, src/data/AGENTS.md, scripts/AGENTS.md,
+        docs/implementation-status.md (approved targets + measured table).
+NOTE:   The approved windows are now: Depth 2 10-20m, Depth 3 1-2h, Depth 4 4-8h, Depth 5 24-48h,
+        first prestige within 4h, offline at the 24h cap <=50% of a day of active play. Both
+        reference strategies land inside every window (greedy 10.9m/65.6m/5.54h/28.87h, balanced
+        14.8m/93.8m/7.82h/41.22h), which is the point of having two lines.
 
 ### Phase N — task: <behavior name>
 RED:    npm test -- --run tests/<area>/<file>.test.js
