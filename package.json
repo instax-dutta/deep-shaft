@@ -1,0 +1,29 @@
+{
+  "name": "deep-shaft",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deep Shaft — a mobile-first browser idle mine-management game.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "gate": "node scripts/gate.mjs",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:browser": "npm run test:browser:smoke && npm run test:browser:events && npm run test:browser:responsive",
+    "test:browser:smoke": "node scripts/browser-smoke.mjs",
+    "test:browser:events": "node scripts/browser-events.mjs",
+    "test:browser:responsive": "node scripts/browser-responsive.mjs"
+  },
+  "dependencies": {
+    "break_eternity.js": "^2.1.3",
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1",
+    "playwright": "^1.63.0",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  }
+}
