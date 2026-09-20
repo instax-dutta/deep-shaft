@@ -4,8 +4,31 @@ import { createInitialState } from '../../src/core/state.js';
 import { shaftLayoutFor } from '../../src/scenes/shaftVisual.js';
 import { getDepthTier } from '../../src/data/depthTiers.js';
 import { RESOURCE_CATEGORIES, resourceOfCategory } from '../../src/data/resources.js';
+import {
+  ART_KEYS,
+  MARKER_KEY,
+  RAIL_KEY,
+  STRATA_TILE_SIZE,
+  artPack,
+  mineralKeyFor,
+  strataKeyFor,
+} from '../../src/data/artPack.js';
 
 const VIEWPORT = { width: 360, height: 480 };
+
+/** Every art key the layout hands to the renderer must exist in the pack. */
+function expectKnownArtKeys(layout) {
+  for (const band of layout.bands) {
+    expect(ART_KEYS).toContain(band.textureKey);
+    for (const mineral of band.minerals) {
+      expect(ART_KEYS).toContain(mineral.key);
+    }
+  }
+  for (const rail of layout.rails) {
+    expect(ART_KEYS).toContain(rail.textureKey);
+  }
+  expect(ART_KEYS).toContain(layout.marker.textureKey);
+}
 
 describe('shaftLayoutFor', () => {
   it('draws one band for every tier the mine has reached', () => {
@@ -151,44 +174,33 @@ describe('shaftLayoutFor depth storytelling', () => {
     }
     expect(shades.at(-1)).toBeLessThanOrEqual(1);
   });
+});
 
-  it('draws rock texture on every stratum, identically on every frame', () => {
-    const state = createInitialState();
-    state.depthTier = 3;
-
-    const first = shaftLayoutFor(state, VIEWPORT);
-    const second = shaftLayoutFor(state, VIEWPORT);
-
-    for (const band of first.bands) {
-      expect(band.marks.length).toBeGreaterThan(0);
-    }
-    expect(second.bands).toEqual(first.bands);
-  });
-
-  it('keeps every rock mark inside the stratum it belongs to', () => {
+describe('shaftLayoutFor art pack usage', () => {
+  it('gives every stratum the rock tile of its own tier', () => {
     const state = createInitialState();
     state.depthTier = 5;
 
+    const { bands } = shaftLayoutFor(state, VIEWPORT);
+
+    bands.forEach((band, index) => {
+      expect(band.textureKey).toBe(strataKeyFor(index + 1));
+    });
+  });
+
+  it('scales each rock tile to fill its band instead of repeating a scarce texture', () => {
+    const state = createInitialState();
+    state.depthTier = 3;
+
     for (const band of shaftLayoutFor(state, VIEWPORT).bands) {
-      for (const mark of band.marks) {
-        expect(mark.x).toBeGreaterThanOrEqual(band.left);
-        expect(mark.x + mark.width).toBeLessThanOrEqual(band.left + band.width + 1e-9);
-        expect(mark.y).toBeGreaterThanOrEqual(band.top);
-        expect(mark.y + mark.height).toBeLessThanOrEqual(band.top + band.height + 1e-9);
-      }
+      expect(band.tileScaleX).toBeCloseTo(band.width / STRATA_TILE_SIZE, 9);
+      expect(band.tileScaleY).toBeCloseTo(band.height / STRATA_TILE_SIZE, 9);
+      expect(band.tileScaleX).toBeGreaterThan(0);
+      expect(band.tileScaleY).toBeGreaterThan(0);
     }
   });
 
-  it('does not repeat the same rock texture in every stratum', () => {
-    const state = createInitialState();
-    state.depthTier = 4;
-
-    const { bands } = shaftLayoutFor(state, VIEWPORT);
-
-    expect(bands[1].marks).not.toEqual(bands[2].marks);
-  });
-
-  it('lines the shaft with a rail down each edge', () => {
+  it('lines the shaft with the pack rail texture down each edge', () => {
     const layout = shaftLayoutFor(createInitialState(), VIEWPORT);
 
     expect(layout.rails).toHaveLength(2);
@@ -197,18 +209,101 @@ describe('shaftLayoutFor depth storytelling', () => {
     for (const rail of layout.rails) {
       expect(rail.width).toBeGreaterThan(0);
       expect(rail.height).toBeCloseTo(VIEWPORT.height, 6);
+      expect(rail.textureKey).toBe(RAIL_KEY);
+      expect(rail.tileScaleX).toBeCloseTo(rail.width / artPack[RAIL_KEY].width, 9);
     }
   });
 
-  it('marks where the mine is working inside the current stratum', () => {
+  it('places mineral sprites drawn from the pack, in every category, on every stratum', () => {
+    const state = createInitialState();
+    state.depthTier = 4;
+
+    for (const band of shaftLayoutFor(state, VIEWPORT).bands) {
+      expect(band.minerals.length).toBeGreaterThan(0);
+
+      const categories = new Set(band.minerals.map((mineral) => mineral.category));
+      expect(categories).toEqual(new Set(Object.values(RESOURCE_CATEGORIES)));
+
+      for (const mineral of band.minerals) {
+        expect(mineral.key).toBe(mineralKeyFor(mineral.category));
+        expect(mineral.size).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('keeps every mineral inside the stratum it belongs to', () => {
+    const state = createInitialState();
+    state.depthTier = 5;
+
+    for (const band of shaftLayoutFor(state, VIEWPORT).bands) {
+      for (const mineral of band.minerals) {
+        expect(mineral.x).toBeGreaterThanOrEqual(band.left);
+        expect(mineral.x + mineral.size).toBeLessThanOrEqual(band.left + band.width + 1e-9);
+        expect(mineral.y).toBeGreaterThanOrEqual(band.top);
+        expect(mineral.y + mineral.size).toBeLessThanOrEqual(band.top + band.height + 1e-9);
+      }
+    }
+  });
+
+  it('keeps the mineral cluster clear of the stratum label and legend', () => {
+    // The label sits top-left and the swatches bottom-left, so the sprites belong in the right
+    // half of the band rather than underneath either of them.
+    const state = createInitialState();
+    state.depthTier = 5;
+
+    for (const band of shaftLayoutFor(state, VIEWPORT).bands) {
+      for (const mineral of band.minerals) {
+        expect(mineral.x).toBeGreaterThan(band.left + band.width * 0.4);
+      }
+    }
+  });
+
+  it('laces the same strata identically on every frame', () => {
     const state = createInitialState();
     state.depthTier = 3;
 
-    const { bands, markerTop } = shaftLayoutFor(state, VIEWPORT);
+    const first = shaftLayoutFor(state, VIEWPORT);
+    const second = shaftLayoutFor(state, VIEWPORT);
+
+    expect(second.bands).toEqual(first.bands);
+  });
+
+  it('does not lace the same mineral cluster into every stratum', () => {
+    const state = createInitialState();
+    state.depthTier = 4;
+
+    const { bands } = shaftLayoutFor(state, VIEWPORT);
+
+    expect(bands[1].minerals).not.toEqual(bands[2].minerals);
+  });
+
+  it('drops the mineral dressing when a band is too short to show it', () => {
+    const state = createInitialState();
+    state.depthTier = 5;
+
+    // Five tiers in a 100px viewport leaves 20px bands, which cannot hold a sprite plus a label.
+    const { bands } = shaftLayoutFor(state, { width: 360, height: 100 });
+
+    for (const band of bands) {
+      expect(band.height).toBe(20);
+      expect(band.minerals).toHaveLength(0);
+    }
+  });
+});
+
+describe('shaftLayoutFor depth marker', () => {
+  it('places the pack drill sprite where the mine is working, inside the current stratum', () => {
+    const state = createInitialState();
+    state.depthTier = 3;
+
+    const { bands, marker } = shaftLayoutFor(state, VIEWPORT);
     const current = bands[2];
 
-    expect(markerTop).toBeGreaterThan(current.top);
-    expect(markerTop).toBeLessThan(current.top + current.height);
+    expect(marker.textureKey).toBe(MARKER_KEY);
+    expect(marker.y).toBeGreaterThan(current.top);
+    expect(marker.y).toBeLessThan(current.top + current.height);
+    expect(marker.size).toBeGreaterThan(0);
+    expect(marker.x).toBeLessThan(current.left + current.width);
   });
 
   it('draws a surface line at the top of the shaft', () => {
@@ -218,11 +313,19 @@ describe('shaftLayoutFor depth storytelling', () => {
     expect(layout.surfaceLine.height).toBeGreaterThan(0);
   });
 
+  it('hands the renderer only art keys the pack declares', () => {
+    const state = createInitialState();
+    state.depthTier = 5;
+
+    expectKnownArtKeys(shaftLayoutFor(state, VIEWPORT, { caveIn: true }));
+  });
+
   it('keeps every part usable on a tiny viewport', () => {
     const layout = shaftLayoutFor(createInitialState(), { width: 1, height: 1 });
 
     expect(layout.rails[0].width).toBeGreaterThan(0);
     expect(layout.bands[0].height).toBeGreaterThan(0);
-    expect(layout.bands[0].marks.every((mark) => Number.isFinite(mark.y))).toBe(true);
+    expect(layout.marker.size).toBeGreaterThan(0);
+    expect(Number.isFinite(layout.marker.y)).toBe(true);
   });
 });

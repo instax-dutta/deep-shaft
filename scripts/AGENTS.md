@@ -14,11 +14,19 @@
 - `browser-events.mjs` builds a **verification-only** bundle with accelerated event pacing and
   drives cave-ins and lucky veins to their visible conclusions.
 - `browser-pwa.mjs` builds and serves the production bundle, waits for the service worker to reach
-  the active state, fetches and parses the manifest, then **takes the network away and reloads** to
-  prove the cached app shell still renders the game.
-- `generate-icons.mjs` writes the placeholder install icons under `public/icons/` deterministically
-  (same command, same bytes). It is the one script here that is not a verification gate: its output
-  is committed, and it retires when the owner signs off on a real art pack.
+  the active state, fetches and parses the manifest, asserts every art file named by
+  `art/pack.json` is in the cache, then **takes the network away and reloads** to prove the cached
+  app shell still renders the game.
+- `generate-art.mjs` renders the whole art pack — shaft tiles, rail, mineral sprites, drill marker,
+  and the install icons — deterministically (same command, same bytes) and emits `art/pack.json` for
+  the service worker. It is the one script here that is not a verification gate: its output is
+  committed. It reads its key list from `src/data/artPack.js` and its colours from
+  `src/data/artPalette.js`, so it cannot render art the pack does not declare, and it throws on a
+  key with no recipe rather than skipping it.
+- `generate-art.mjs --preview=<key|file>` prints a contrast-normalised luminance map of one asset.
+  Art is judged by eye and the terminal is the only eye available while authoring; the report line
+  (`coverage`, `colours`, `contrast`) is what distinguishes "textured" from "flat colour once
+  stretched".
 - `browser-responsive.mjs` boots the production bundle at eight viewports — small phone through
   wide desktop, including landscape — and measures each one: horizontal overflow, clipped labels,
   touch-target size, stacked versus side-by-side layout, and card width. It writes one screenshot
@@ -76,6 +84,14 @@
   asserted pixel-by-pixel without an image decoder, so a human has to look at it.
 
 ## Local Contracts (continued)
+- **A service worker's install must cache what the page fetches at runtime, not only what the HTML
+  names.** The art pack is loaded by Phaser at boot, so a worker that read `index.html` alone left
+  the shaft blank offline — the failure looked like "the offline page rendered but two requests
+  failed", with no hint that the missing files were art. The worker now reads `art/pack.json` and
+  the web app manifest, and `browser-pwa.mjs` asserts the pack is cached against that manifest.
+- **Wait for a lifecycle transition; do not sample it.** The worker now fetches the whole pack
+  during install, which made `ready.active.state` still read `activating` at the moment the check
+  ran. The check waits on `statechange` and `controllerchange` instead of reading state once.
 - **A service worker's cache lookup must ignore `Vary`.** The preview server tags the shell with
   `Vary: Origin`, while an entry filled by `cache.add()` carries no `Origin`; a `crossorigin`
   script or stylesheet request sends one, so a header-sensitive `caches.match(request)` misses the

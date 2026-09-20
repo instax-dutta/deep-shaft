@@ -10,10 +10,17 @@
  * player never keeps serving a stale bundle.
  */
 
-const CACHE_NAME = 'deep-shaft-v1';
+/** Bump when the shell changes, so a player never keeps serving a stale bundle. */
+const CACHE_NAME = 'deep-shaft-v2';
 
-/** The documents a navigation can land on. Everything else is read out of the built HTML. */
-const SHELL_DOCUMENTS = ['./', './index.html'];
+/**
+ * The shell documents, plus the two manifests the worker reads to discover the rest.
+ *
+ * Everything else is derived: the built HTML names the hashed bundle, the web app manifest names
+ * the install icons, and the art pack manifest names the tiles. None of those lists are restated
+ * here, because a hardcoded copy 404s the next time an asset is renamed.
+ */
+const SHELL_DOCUMENTS = ['./', './index.html', './manifest.webmanifest', './art/pack.json'];
 
 /** File types worth keeping: the shell and its assets, not API responses. */
 const CACHEABLE = /\.(?:css|js|mjs|png|svg|jpg|jpeg|webp|ico|webmanifest|woff2?)(?:\?|$)/;
@@ -33,25 +40,48 @@ function absolute(url) {
   return new URL(url, self.location.href).href;
 }
 
+/** Caches each URL, tolerating one failure so a single missing asset cannot fail the install. */
+async function cacheUrls(cache, urls) {
+  await Promise.all(
+    [...new Set(urls.filter(Boolean))].map((url) => cache.add(url).catch(() => undefined)),
+  );
+}
+
+/** Reads a cached JSON document, or `null` when it is missing or unreadable. */
+async function readCachedJson(cache, url) {
+  const response = await cache.match(absolute(url), SHELL_LOOKUP);
+  if (!response) {
+    return null;
+  }
+  try {
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+
 async function cacheShell() {
   const cache = await caches.open(CACHE_NAME);
   await cache.addAll(SHELL_DOCUMENTS.map(absolute));
 
-  const response = await cache.match(absolute('./index.html'));
-  if (!response) {
-    return;
-  }
-
-  const html = await response.text();
-  const referenced = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+  // The built HTML names the hashed bundle, which cannot be known at author time.
+  const response = await cache.match(absolute('./index.html'), SHELL_LOOKUP);
+  const html = response ? await response.text() : '';
+  const shellReferences = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
     .map((match) => match[1])
     .filter((url) => !url.startsWith('http') && url !== '#')
     .map(absolute);
 
-  // One unreachable asset must not fail the whole install: the app shell alone is still playable.
-  await Promise.all(
-    [...new Set(referenced)].map((url) => cache.add(url).catch(() => undefined)),
-  );
+  // Install icons are fetched by the browser at install time, but an offline launch wants them too.
+  const manifest = await readCachedJson(cache, './manifest.webmanifest');
+  const iconReferences = (manifest?.icons ?? []).map((icon) => absolute(icon.src));
+
+  // The art is loaded by the game at boot, so it is not referenced by the built HTML at all. The
+  // emitted pack manifest is what makes it discoverable here.
+  const pack = await readCachedJson(cache, './art/pack.json');
+  const artReferences = (pack?.files ?? []).map((file) => absolute(file.file));
+
+  await cacheUrls(cache, [...shellReferences, ...iconReferences, ...artReferences]);
 }
 
 self.addEventListener('install', (event) => {

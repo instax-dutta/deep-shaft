@@ -15,6 +15,8 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { pngSize } from '../helpers/png.js';
+
 const ROOT = new URL('../../', import.meta.url);
 
 function readText(path) {
@@ -28,14 +30,17 @@ function readBytes(path) {
 const HTML = readText('index.html');
 const MANIFEST = JSON.parse(readText('public/manifest.webmanifest'));
 const WORKER = readText('public/sw.js');
+const ART_MANIFEST = JSON.parse(readText('public/art/pack.json'));
 
-/** PNG exposes its pixel dimensions in the IHDR chunk: signature (8 bytes), length + type (8), then width, height. */
-function pngSize(bytes) {
-  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  const matchesSignature = signature.every((byte, index) => bytes[index] === byte);
-
-  expect(matchesSignature).toBe(true);
-  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+/** Every icon link in index.html, as `{ file, widths }` with the path relative to `public/`. */
+function linkedIcons() {
+  return [...HTML.matchAll(/<link[^>]+rel="(?:icon|apple-touch-icon)"[^>]*>/g)].map((match) => {
+    const tag = match[0];
+    return {
+      file: /href="([^"]+)"/.exec(tag)[1].replace(/^\.\//, ''),
+      declared: /sizes="(\d+)x(\d+)"/.exec(tag)?.slice(1, 3).map(Number) ?? null,
+    };
+  });
 }
 
 describe('web app manifest', () => {
@@ -69,7 +74,21 @@ describe('web app manifest', () => {
       const bytes = readBytes(`public/${icon.src}`);
       const [width, height] = icon.sizes.split('x').map(Number);
 
-      expect(pngSize(bytes)).toEqual({ width, height });
+      expect(pngSize(bytes), icon.src).toEqual({ width, height });
+    }
+  });
+
+  it('links only icons that exist, including the favicon and touch icon', () => {
+    const icons = linkedIcons();
+
+    expect(icons.length).toBeGreaterThanOrEqual(3);
+    for (const icon of icons) {
+      const bytes = readBytes(`public/${icon.file}`);
+
+      if (icon.declared) {
+        const [width, height] = icon.declared;
+        expect(pngSize(bytes), icon.file).toEqual({ width, height });
+      }
     }
   });
 
@@ -102,5 +121,18 @@ describe('service worker', () => {
     expect(WORKER).toContain('caches.match');
     expect(WORKER).toMatch(/addEventListener\(\s*'activate'/);
     expect(WORKER).toMatch(/caches\.delete/);
+  });
+
+  it('caches the art pack the game loads, which the built HTML never references', () => {
+    // Phaser fetches these at boot, so they cannot be found by reading index.html. The worker reads
+    // the emitted pack manifest instead — and the pack must be non-empty for that to mean anything.
+    expect(ART_MANIFEST.files.length).toBeGreaterThan(0);
+    expect(WORKER).toContain('art/pack.json');
+    expect(WORKER).toMatch(/pack\??\.files/);
+  });
+
+  it('caches the manifest icons so an offline launch has them', () => {
+    expect(WORKER).toContain('manifest.webmanifest');
+    expect(WORKER).toMatch(/manifest\??\.icons/);
   });
 });

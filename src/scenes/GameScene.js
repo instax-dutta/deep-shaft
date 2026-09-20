@@ -1,22 +1,41 @@
 import Phaser from 'phaser';
 
 import { formatNumber } from '../core/numberFormat.js';
+import { MINERAL_COLORS, INK_COLOR, INK_DIM_COLOR } from '../data/artPalette.js';
 import { getResource } from '../data/resources.js';
 import { shaftLayoutFor } from './shaftVisual.js';
 
-const INK = '#f4e3c1';
-const INK_DIM = '#cbbba0';
+const INK = INK_COLOR;
 const MARKER = 0xffe0a3;
+
+/** Explicit layer order: art, then decoration over it, then readable text on top. */
+const DEPTH = Object.freeze({
+  strata: 0,
+  minerals: 1,
+  marker: 2,
+  rails: 3,
+  overlay: 4,
+  labels: 5,
+});
 
 /** Below this band height there is no room for a readable label. */
 const MIN_LABEL_BAND_HEIGHT = 26;
+
+/** How much a deeper stratum darkens, applied as a tint over the rock tile. */
+const MAX_DEPTH_DARKENING = 0.45;
 
 function toColor(hex) {
   return Phaser.Display.Color.HexStringToColor(hex).color;
 }
 
+/** Multiplying a band's tint is how depth darkens the rock without redrawing it. */
+function shadeTint(shade) {
+  const factor = Math.round(255 * (1 - Math.min(1, shade) * MAX_DEPTH_DARKENING));
+  return (factor << 16) | (factor << 8) | factor;
+}
+
 /**
- * Game scene: renders the mine shaft and turns taps into commands.
+ * Game scene: renders the mine shaft from the art pack and turns taps into commands.
  *
  * The scene owns no economy math — it asks the composition layer for a state snapshot, draws it,
  * and dispatches named commands back. Tapping the shaft is the spec's manual mining action, so a
@@ -28,10 +47,11 @@ export class GameScene extends Phaser.Scene {
     this.context = context;
     this.lastSignature = null;
     this.strataTexts = [];
+    this.art = [];
   }
 
   create() {
-    this.graphics = this.add.graphics();
+    this.overlay = this.add.graphics().setDepth(DEPTH.overlay);
 
     this.input.on('pointerdown', (pointer) => this.handleTap(pointer));
     this.scale.on('resize', () => {
@@ -49,7 +69,7 @@ export class GameScene extends Phaser.Scene {
   /** Redraws only when something visible actually changed. */
   draw() {
     const state = this.context?.getState?.();
-    if (!state || !this.graphics) {
+    if (!state || !this.overlay) {
       return;
     }
 
@@ -72,82 +92,106 @@ export class GameScene extends Phaser.Scene {
       modifiers,
     );
 
+    this.clearArt();
     this.drawStrata(layout);
-    this.drawSwatches(layout);
-    this.drawRails(layout);
+    this.drawMinerals(layout);
     this.drawMarker(layout);
-    this.drawEventState(layout);
+    this.drawRails(layout);
+    this.drawOverlay(layout);
     this.drawLabels(layout);
   }
 
-  drawStrata(layout) {
-    const graphics = this.graphics;
-
-    for (const band of layout.bands) {
-      graphics.fillStyle(toColor(band.color), 1);
-      graphics.fillRect(band.left, band.top, band.width, band.height);
-
-      // Deeper rock sits darker, which is what makes depth read at a glance.
-      if (band.shade > 0) {
-        graphics.fillStyle(0x000000, band.shade * 0.45);
-        graphics.fillRect(band.left, band.top, band.width, band.height);
-      }
-
-      graphics.fillStyle(0x000000, 0.25);
-      for (const mark of band.marks) {
-        graphics.fillRect(mark.x, mark.y, mark.width, mark.height);
-      }
-
-      // Seam between strata.
-      graphics.fillStyle(0x000000, 0.5);
-      graphics.fillRect(band.left, band.top + band.height - 1, band.width, 1);
+  /** Art is rebuilt with the layout rather than reconciled: it only changes when depth does. */
+  clearArt() {
+    for (const object of this.art) {
+      object.destroy();
     }
+    this.art = [];
+  }
+
+  /** One stretched rock tile per stratum, darkening with depth. */
+  drawStrata(layout) {
+    for (const band of layout.bands) {
+      const sprite = this.add
+        .tileSprite(band.left, band.top, band.width, band.height, band.textureKey)
+        .setOrigin(0, 0)
+        .setTileScale(band.tileScaleX, band.tileScaleY)
+        .setDepth(DEPTH.strata)
+        .setTint(shadeTint(band.shade));
+
+      this.art.push(sprite);
+    }
+  }
+
+  /** Mineral sprites, tinted with the same legend colours the swatches use. */
+  drawMinerals(layout) {
+    for (const band of layout.bands) {
+      for (const mineral of band.minerals) {
+        const sprite = this.add
+          .image(mineral.x + mineral.size / 2, mineral.y + mineral.size / 2, mineral.key)
+          .setDisplaySize(mineral.size, mineral.size)
+          .setDepth(DEPTH.minerals)
+          .setTint(toColor(MINERAL_COLORS[mineral.category]));
+
+        this.art.push(sprite);
+      }
+    }
+  }
+
+  drawMarker(layout) {
+    const marker = this.add
+      .image(layout.marker.x, layout.marker.y, layout.marker.textureKey)
+      .setOrigin(0, 0.5)
+      .setDisplaySize(layout.marker.size, layout.marker.size)
+      .setDepth(DEPTH.marker);
+
+    this.art.push(marker);
+  }
+
+  drawRails(layout) {
+    for (const rail of layout.rails) {
+      const sprite = this.add
+        .tileSprite(rail.left, rail.top, rail.width, rail.height, rail.textureKey)
+        .setOrigin(0, 0)
+        .setTileScale(rail.tileScaleX, rail.tileScaleY)
+        .setDepth(DEPTH.rails);
+
+      this.art.push(sprite);
+    }
+  }
+
+  /** Swatches, surface line, the current-stratum outline, and event tinting. */
+  drawOverlay(layout) {
+    const graphics = this.overlay;
+    graphics.clear();
 
     const current = layout.bands[layout.bands.length - 1];
     graphics.lineStyle(2, MARKER, 0.7);
     graphics.strokeRect(current.left + 1, current.top + 1, current.width - 2, current.height - 2);
-  }
 
-  drawSwatches(layout) {
     const size = 8;
     const gap = 4;
-
     for (const band of layout.bands) {
       if (band.height < MIN_LABEL_BAND_HEIGHT) {
         continue;
       }
       const y = band.top + band.height - size - 8;
       band.swatches.forEach((swatch, index) => {
-        this.graphics.fillStyle(toColor(swatch.color), 1);
-        this.graphics.fillRect(band.left + 12 + index * (size + gap), y, size, size);
+        graphics.fillStyle(toColor(swatch.color), 1);
+        graphics.fillRect(band.left + 12 + index * (size + gap), y, size, size);
       });
     }
-  }
 
-  drawRails(layout) {
-    for (const rail of layout.rails) {
-      this.graphics.fillStyle(0x14110e, 0.75);
-      this.graphics.fillRect(rail.left, rail.top, rail.width, rail.height);
-    }
+    graphics.fillStyle(toColor(INK), 0.9);
+    graphics.fillRect(0, layout.surfaceLine.y, layout.width, layout.surfaceLine.height);
 
-    this.graphics.fillStyle(0xd9c9a3, 0.9);
-    this.graphics.fillRect(0, layout.surfaceLine.y, layout.width, layout.surfaceLine.height);
-  }
-
-  drawMarker(layout) {
-    const top = layout.markerTop;
-    this.graphics.fillStyle(MARKER, 0.95);
-    this.graphics.fillTriangle(6, top - 6, 6, top + 6, 16, top);
-  }
-
-  drawEventState(layout) {
     if (layout.dimmed) {
-      this.graphics.fillStyle(0x000000, 0.6);
-      this.graphics.fillRect(0, 0, layout.width, layout.height);
+      graphics.fillStyle(0x000000, 0.6);
+      graphics.fillRect(0, 0, layout.width, layout.height);
     }
     if (layout.glowing) {
-      this.graphics.fillStyle(0xffd166, 0.2);
-      this.graphics.fillRect(0, 0, layout.width, layout.height);
+      graphics.fillStyle(0xffd166, 0.2);
+      graphics.fillRect(0, 0, layout.width, layout.height);
     }
   }
 
@@ -161,16 +205,20 @@ export class GameScene extends Phaser.Scene {
       if (band.height < MIN_LABEL_BAND_HEIGHT) {
         continue;
       }
-      const name = this.add.text(band.left + 12, band.top + 6, band.label, {
-        fontFamily: 'ui-monospace, monospace',
-        fontSize: '12px',
-        color: INK,
-      });
-      const depth = this.add.text(band.left + 12, band.top + 21, `${band.depthMeters} m`, {
-        fontFamily: 'ui-monospace, monospace',
-        fontSize: '10px',
-        color: INK_DIM,
-      });
+      const name = this.add
+        .text(band.left + 12, band.top + 6, band.label, {
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '12px',
+          color: INK,
+        })
+        .setDepth(DEPTH.labels);
+      const depth = this.add
+        .text(band.left + 12, band.top + 21, `${band.depthMeters} m`, {
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '10px',
+          color: INK_DIM_COLOR,
+        })
+        .setDepth(DEPTH.labels);
       this.strataTexts.push(name, depth);
     }
   }

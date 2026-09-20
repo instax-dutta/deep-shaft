@@ -136,6 +136,27 @@ Evidence: full suite 511 passed (42 files); `npm run gate` green (unit tests, bu
 scenario seeded `currency: 5_000_000` by hand, which the new ladder outgrew, so the scripted run
 stopped short of the deepest tier. It now derives its seeded currency from `depthTierCost()`.
 
+### Art pack (non-TDD track, owner-decided)
+
+The owner chose an **in-house authored pack** over a vendored CC0 one, and extended it past the
+icons to the in-game shaft. `scripts/generate-art.mjs` renders the whole set deterministically from
+`src/data/artPack.js` (which keys exist, at what pixel size) and `src/data/artPalette.js` (the
+colours), so the art has provenance, no licence to honour, and a one-file retune.
+
+The pack is ten in-game textures — one 192×192 rock tile per depth tier, a rail tile, three mineral
+sprites, and a drill marker — plus a favicon, a 180px touch icon, and 192/512/maskable app icons.
+The shaft is now drawn from it rather than from `Graphics` primitives: `TileSprite` bands tinted by
+depth, tinted mineral sprites placed by `shaftVisual.js`, a rail down each edge, and the drill
+marker where the mine is working. Mineral sprites are drawn in neutral tones and tinted with the
+category's legend colour, so the shaft and the swatch legend cannot disagree.
+
+`public/art/pack.json` is emitted alongside the art for the service worker, which cannot import
+`artPack.js`; the worker caches those files at install, because the art is fetched by Phaser at boot
+and never appears in `index.html`.
+
+Evidence: full suite 541 passed (45 files); `npm run gate` green (59/59 smoke, 7/7 event, 49/49
+responsive, 9/9 PWA); `screenshots/shaft.png` rendered for human review.
+
 ### P8 — installable PWA with an offline app shell
 
 `public/manifest.webmanifest` declares Deep Shaft as a standalone app with 192, 512, and maskable
@@ -238,7 +259,7 @@ rather than unwritten code.
 | Depth-reading shaft (labelled strata, metres, swatches, texture, rails, marker) | Implemented |
 | Responsive layout measured at 8 viewports, 320px to 1920px | Implemented |
 | Prestige (run reset for a permanent multiplier, with confirmation) | Implemented |
-| Real CC0 visual assets | **Not started** — procedural graphics in use; needs owner sign-off on a pack |
+| Real visual assets | **Implemented** — in-house authored art pack (rock tiles, rails, mineral sprites, drill marker, app icons); no third-party licence |
 
 Verification evidence:
 

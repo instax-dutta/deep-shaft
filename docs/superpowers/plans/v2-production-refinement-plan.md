@@ -940,13 +940,22 @@ unit test. They get a checklist and a human acceptance record instead.
 
 | Artifact | Acceptance method | Owner decision |
 |---|---|---|
-| CC0 pixel-art pack (sprites, tiles, icons, favicon, PWA icons) | Visual review against `screenshots/`; browser check that assets load and no 404s | Which pack; licensing |
+| Art pack (sprites, tiles, icons, favicon, PWA icons) | Visual review against `screenshots/`; pack contract test for file/size agreement; browser check that every texture loads and is cached offline | Which pack; licensing |
 | Audio assets (SFX) | Human listen test; mute verified by P11 adapter test | Whether sound ships at all |
 | Marketing / store copy, privacy note (localStorage + any analytics) | Human review; legal if analytics is added | Whether analytics ships |
 | Economy target numbers (P12) | Approved in this plan; changing them is an explicit edit | Approved as proposed — implemented by owner instruction ("implement P12 so pacing is defended by tests"); the four windows, the 4h first-prestige bound, and the 24h offline cap shipped as written |
 | Monetization | Spec §13 says out of scope for v1. Do not add ads/IAP without a new spec. | Explicitly re-scope if desired |
 
 For each artifact delivered, append a one-line acceptance note (who approved, when, evidence path).
+
+**Art pack — accepted.** The owner chose an *in-house authored* pack rather than a vendored CC0 one,
+and asked for it to reach the in-game shaft as well as the app icons (owner instruction:
+"Replace the placeholder PWA icons with a real cohesive art pack", answered as *author it in-house*
+and *icons plus in-game shaft art*). Delivered 2026-09-20: ten in-game textures plus five icon files,
+rendered by `scripts/generate-art.mjs`, contract-tested by `tests/data/artPack.test.js`, load-tested
+by `scripts/browser-smoke.mjs`, and captured for review at `screenshots/shaft.png`. No third-party
+assets and therefore no attribution obligation; the CC0-pack decision is closed as *not taken*.
+The art's acceptance is still a human judgement of `screenshots/shaft.png`, which no test replaces.
 
 ---
 
@@ -979,6 +988,7 @@ For each artifact delivered, append a one-line acceptance note (who approved, wh
 | P13 | Big-number swap | complete | +6 | Evidence block P13 |
 | P14 | Cross-browser/soak/perf | pending | — | — |
 | P15 | Resilience/diagnostics | pending | — | — |
+| — | Art pack (non-TDD track) | complete | +10 (pack contract) | Acceptance note below |
 
 ---
 

@@ -5,7 +5,8 @@
 
 ## Ownership
 - `core/` owns deterministic game rules and state transitions.
-- `data/` owns content definitions and balance configuration.
+- `data/` owns content definitions, balance configuration, the art pack contract and palette, and
+  the other tuning surfaces.
 - `platform/` owns browser APIs such as localStorage, timers, and visibility lifecycle.
 - `scenes/` owns Phaser lifecycle and shaft rendering orchestration.
 - `ui/` owns DOM-based player controls and presentation.

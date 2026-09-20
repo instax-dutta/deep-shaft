@@ -60,9 +60,27 @@ try {
   // autosave loop would otherwise overwrite the other scenario's save mid-run.
   const cleanContext = await session.newContext();
   const page = await openPage(cleanContext);
+
+  // Watch for the art pack on the wire: the shaft is drawn from these textures, and a texture that
+  // never arrives leaves a blank band that no DOM assertion would notice.
+  const artResponses = new Map();
+  page.on('response', (response) => {
+    const path = new URL(response.url()).pathname;
+    if (path.startsWith('/art/') && path.endsWith('.png')) {
+      artResponses.set(path, response.status());
+    }
+  });
+
   await boot(page, server.url);
 
   reporter.check('Phaser canvas mounts in the shaft', (await page.locator('#shaft canvas').count()) === 1);
+
+  const failedArt = [...artResponses].filter(([, status]) => status !== 200).map(([path]) => path);
+  reporter.check(
+    'the boot scene loads every art pack texture the shaft draws',
+    artResponses.size >= 10 && failedArt.length === 0,
+    `${artResponses.size} textures, failed ${JSON.stringify(failedArt)}`,
+  );
   reporter.check('HUD renders at startup', (await page.locator('.hud').count()) === 1);
   reporter.check(
     'shop, depth, worker, and prestige panels render',

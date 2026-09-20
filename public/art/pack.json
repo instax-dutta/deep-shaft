@@ -1,0 +1,66 @@
+{
+  "name": "Deep Shaft art pack",
+  "version": 1,
+  "files": [
+    {
+      "key": "strata-1",
+      "file": "art/strata-1.png",
+      "width": 192,
+      "height": 192
+    },
+    {
+      "key": "strata-2",
+      "file": "art/strata-2.png",
+      "width": 192,
+      "height": 192
+    },
+    {
+      "key": "strata-3",
+      "file": "art/strata-3.png",
+      "width": 192,
+      "height": 192
+    },
+    {
+      "key": "strata-4",
+      "file": "art/strata-4.png",
+      "width": 192,
+      "height": 192
+    },
+    {
+      "key": "strata-5",
+      "file": "art/strata-5.png",
+      "width": 192,
+      "height": 192
+    },
+    {
+      "key": "rail",
+      "file": "art/rail.png",
+      "width": 32,
+      "height": 32
+    },
+    {
+      "key": "mineral-ore",
+      "file": "art/mineral-ore.png",
+      "width": 24,
+      "height": 24
+    },
+    {
+      "key": "mineral-gems",
+      "file": "art/mineral-gems.png",
+      "width": 24,
+      "height": 24
+    },
+    {
+      "key": "mineral-rare",
+      "file": "art/mineral-rare.png",
+      "width": 24,
+      "height": 24
+    },
+    {
+      "key": "marker-drill",
+      "file": "art/marker-drill.png",
+      "width": 32,
+      "height": 32
+    }
+  ]
+}

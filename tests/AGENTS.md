@@ -23,6 +23,12 @@
   no layout (`reducedMotion.test.js`, alongside `responsiveStyles.test.js`).
 - `npm run gate` (see `scripts/AGENTS.md`) runs the unit suite, the build, and the browser suites in
   one command and is the aggregate check every phase leaves green.
+- The art pack is a file contract: `tests/data/artPack.test.js` reads the committed PNGs and checks
+  them against `src/data/artPack.js` (file exists, real PNG, declared pixel size) and against the
+  emitted `public/art/pack.json`. Shared header parsing lives in `tests/helpers/png.js` rather than
+  being re-derived in each file. Art *placement* is a normal behavior test in
+  `tests/scenes/shaftVisual.test.js`, and whether the browser really fetched the textures is a
+  browser-run check.
 - Installability is a file contract plus a browser behavior. `tests/ui/pwaManifest.test.js` reads
   `index.html`, `public/manifest.webmanifest`, and `public/sw.js` with `node:fs` and asserts the
   decisions a browser run cannot report — that the manifest is linked with relative paths, that

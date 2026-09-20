@@ -26,19 +26,45 @@ try {
   const page = await context.newPage();
   await page.goto(server.url, { waitUntil: 'load' });
 
-  // Installing the worker means fetching and caching the shell, so wait for the active state
-  // rather than assuming a fixed delay is long enough.
+  // Installing the worker means fetching and caching the whole shell, including the art pack, so
+  // this waits for the transition rather than sampling the state and hoping the timing holds.
   const worker = await page.evaluate(async () => {
     if (!('serviceWorker' in navigator)) {
       return { supported: false };
     }
-    const ready = await Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise((resolve) => setTimeout(() => resolve(null), 15_000)),
-    ]);
+
+    const withTimeout = (promise, ms) =>
+      Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+
+    const ready = await withTimeout(navigator.serviceWorker.ready, 20_000);
+    const active = ready?.active ?? ready?.waiting ?? ready?.installing ?? null;
+
+    if (active && active.state !== 'activated') {
+      await withTimeout(
+        new Promise((resolve) => {
+          active.addEventListener('statechange', () => {
+            if (active.state === 'activated') {
+              resolve();
+            }
+          });
+        }),
+        20_000,
+      );
+    }
+
+    if (!navigator.serviceWorker.controller) {
+      await withTimeout(
+        new Promise((resolve) => {
+          navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+        }),
+        20_000,
+      );
+    }
+
     return {
       supported: true,
-      activated: ready?.active?.state === 'activated',
+      state: active?.state ?? null,
+      activated: active?.state === 'activated',
       scope: ready?.scope ?? null,
       controlling: Boolean(navigator.serviceWorker.controller),
     };
@@ -93,6 +119,29 @@ try {
     'the linked icon is served, not a broken reference',
     manifest.iconStatus === 200,
     `status ${manifest.iconStatus}`,
+  );
+
+  // The art pack is the part of the shell the browser cannot discover from the HTML: the game
+  // fetches it at boot, so a worker that only read index.html would leave the shaft blank offline.
+  // Checked against the emitted manifest rather than a restated list.
+  const art = await page.evaluate(async () => {
+    const pack = await (await fetch('./art/pack.json')).json();
+    const names = await caches.keys();
+    const cached = new Set(
+      (
+        await Promise.all(names.map(async (name) => (await caches.open(name)).keys()))
+      )
+        .flat()
+        .map((request) => new URL(request.url).pathname),
+    );
+    const missing = pack.files.map((file) => `/${file.file}`).filter((path) => !cached.has(path));
+    return { total: pack.files.length, missing };
+  });
+
+  reporter.check(
+    'every art pack file is cached for offline play',
+    art.total > 0 && art.missing.length === 0,
+    `${art.total - art.missing.length}/${art.total} cached, missing ${JSON.stringify(art.missing)}`,
   );
 
   // Record what the shell install actually cached, so an offline failure names the missing

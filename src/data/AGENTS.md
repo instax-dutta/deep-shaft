@@ -22,6 +22,15 @@
 - `config.numbers.implementation` selects the magnitude backend (`'big'` default, `'float'` for
   debugging). It is the only switch for the numeric representation; no gameplay module may branch
   on it.
+- `artPack.js` is the art contract: which texture keys exist, which file each maps to, and at what
+  pixel size. `scripts/generate-art.mjs` renders exactly those keys, `BootScene` loads exactly
+  those keys, `scenes/shaftVisual.js` names only those keys, and `tests/data/artPack.test.js`
+  checks the committed PNGs against them. No other module may restate a texture key or an art path.
+  `public/art/pack.json` is the same list emitted for the service worker, which cannot import this
+  module; the same test keeps the two in lockstep.
+- `artPalette.js` is the single colour source for the art pack and the shaft's own markings, so the
+  tiles, mineral sprites, and app icons read as one set. Retuning the pack's look means editing this
+  palette and re-running `node scripts/generate-art.mjs`.
 - `config.pwa` carries the service worker URL and scope. They stay relative so the build remains
   deployable from any path, matching `base: './'`; the platform adapter reads them instead of
   restating a path. The worker's own cache name and shell list live in `public/sw.js`, because a
