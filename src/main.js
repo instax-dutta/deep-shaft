@@ -21,6 +21,7 @@ import { getPrestigeUpgrade } from './data/prestigeUpgrades.js';
 import { createClock } from './platform/clock.js';
 import { createLifecycle } from './platform/lifecycle.js';
 import { createLocalStorageBackend, createStorage } from './platform/storage.js';
+import { registerServiceWorker } from './platform/serviceWorker.js';
 import { BootScene } from './scenes/BootScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { createAchievementsPanel } from './ui/achievementsPanel.js';
@@ -398,6 +399,11 @@ function boot() {
 
   const lifecycle = createLifecycle();
   lifecycle.start({ onHidden: save, onUnload: save });
+
+  // Installability is a bonus rather than a requirement: the adapter reports an unsupported
+  // browser or a failed registration structurally, and the game plays on from the page it already
+  // has. Nothing here is allowed to interrupt boot.
+  void registerServiceWorker();
 
   applySettings();
   render();

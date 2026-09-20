@@ -23,6 +23,14 @@
   no layout (`reducedMotion.test.js`, alongside `responsiveStyles.test.js`).
 - `npm run gate` (see `scripts/AGENTS.md`) runs the unit suite, the build, and the browser suites in
   one command and is the aggregate check every phase leaves green.
+- Installability is a file contract plus a browser behavior. `tests/ui/pwaManifest.test.js` reads
+  `index.html`, `public/manifest.webmanifest`, and `public/sw.js` with `node:fs` and asserts the
+  decisions a browser run cannot report — that the manifest is linked with relative paths, that
+  every icon it promises exists at the size its PNG header declares, and that the worker derives its
+  cache list from the built shell rather than hardcoding a hashed asset name. Registration,
+  activation, and the offline reload are measured in headless Chromium by `npm run test:browser:pwa`.
+  `tests/platform/serviceWorker.test.js` covers the adapter's structured outcomes (including an
+  unsupported browser and a rejecting `register()`) with a fake host, so no real worker is needed.
 - A stylesheet has no runtime to exercise in Vitest, so `tests/ui/responsiveStyles.test.js` asserts
   on the *decisions* in `src/ui/styles.css` — that the CSS breakpoint agrees with
   `config.ui.mobileBreakpointPx`, that the HUD columns follow the panel column, and that a value

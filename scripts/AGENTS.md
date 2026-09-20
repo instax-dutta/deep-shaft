@@ -13,6 +13,12 @@
   dig, hire, save, reload, offline catch-up, touch targets, and console errors.
 - `browser-events.mjs` builds a **verification-only** bundle with accelerated event pacing and
   drives cave-ins and lucky veins to their visible conclusions.
+- `browser-pwa.mjs` builds and serves the production bundle, waits for the service worker to reach
+  the active state, fetches and parses the manifest, then **takes the network away and reloads** to
+  prove the cached app shell still renders the game.
+- `generate-icons.mjs` writes the placeholder install icons under `public/icons/` deterministically
+  (same command, same bytes). It is the one script here that is not a verification gate: its output
+  is committed, and it retires when the owner signs off on a real art pack.
 - `browser-responsive.mjs` boots the production bundle at eight viewports — small phone through
   wide desktop, including landscape — and measures each one: horizontal overflow, clipped labels,
   touch-target size, stacked versus side-by-side layout, and card width. It writes one screenshot
@@ -69,6 +75,18 @@
 - `browser-smoke.mjs` writes `screenshots/shaft.png` for visual review. Canvas rendering cannot be
   asserted pixel-by-pixel without an image decoder, so a human has to look at it.
 
+## Local Contracts (continued)
+- **A service worker's cache lookup must ignore `Vary`.** The preview server tags the shell with
+  `Vary: Origin`, while an entry filled by `cache.add()` carries no `Origin`; a `crossorigin`
+  script or stylesheet request sends one, so a header-sensitive `caches.match(request)` misses the
+  entry that is sitting in the cache and the offline page renders without its JavaScript. This
+  failed *only* in the browser run, and only as "two requests failed", which is why
+  `browser-pwa.mjs` names every failed request URL in its failure detail.
+- **A service worker is a worker: assert on its sources, not on selectors.** There is no
+  `DOMParser` in a worker, so the offline check cannot "parse the HTML like a browser" in Vitest;
+  `tests/ui/pwaManifest.test.js` asserts against the worker source and the real offline behavior is
+  proven in the browser.
+
 ## Work Guidance
 - Add a check whenever a change touches the composition root, Phaser scenes, or persistence.
 - Keep reported check names answerable: a failure should name the player-visible promise that broke.
@@ -80,8 +98,9 @@
 ## Verification
 - `npm run gate` runs the complete production gate (unit tests → build → browser suites) in one
   command and exits non-zero on the first failure.
-- `npm run test:browser` runs both suites and is the gate for browser-facing claims.
-- `npm run test:browser:smoke` and `npm run test:browser:events` run them individually.
+- `npm run test:browser` runs the smoke, event, responsive, and PWA suites in order and is the gate
+  for browser-facing claims.
+- `npm run test:browser:smoke`, `:events`, `:responsive`, and `:pwa` run them individually.
 - Run `npm run test:browser` after browser wiring, scene, pacing, or persistence changes, and before
   claiming the game boots, is playable, or that events work.
 

@@ -9,6 +9,9 @@
   accessibility, PWA, pacing) is planned as a TDD-executable sequence in
   `docs/superpowers/plans/v2-production-refinement-plan.md`. Follow it phase by phase; update this
   file's ledger as each phase completes.
+- Next phase: **P9 — game-feel feedback and UX polish** (per-resource selling, purchase/sale
+  feedback, crew management, and refusing assignment to a locked drill tier). P10, P11, P14, and
+  P15 follow.
 
 ## v2 production refinement progress
 
@@ -22,7 +25,7 @@
 | P5 | Achievements and career stats | Complete |
 | P6 | Settings, notation, safe destructive actions | Complete |
 | P7 | Accessibility hardening | Complete |
-| P8 | PWA and installability | Pending |
+| P8 | PWA and installability | Complete |
 | P9 | Game-feel and UX polish | Pending |
 | P10 | First-run tutorial | Pending |
 | P11 | Audio layer | Pending |
@@ -132,6 +135,25 @@ Evidence: full suite 511 passed (42 files); `npm run gate` green (unit tests, bu
 58/58 smoke + 7/7 event, 49/49 responsive). The gate caught one real defect: the browser smoke
 scenario seeded `currency: 5_000_000` by hand, which the new ladder outgrew, so the scripted run
 stopped short of the deepest tier. It now derives its seeded currency from `depthTierCost()`.
+
+### P8 — installable PWA with an offline app shell
+
+`public/manifest.webmanifest` declares Deep Shaft as a standalone app with 192, 512, and maskable
+512 icons, all with relative paths so the static build installs from any deployment path.
+`src/platform/serviceWorker.js` registers `public/sw.js` through `config.pwa`, reporting an
+unsupported browser or a failed registration structurally — installability never interrupts boot.
+The worker caches the built shell at install time: it stores `index.html`, then reads the markup
+back out of the cache and keeps the `src`/`href` references it finds, so hashed bundle names are
+never hardcoded. Superseded caches are deleted on activation.
+
+Evidence: full suite 523 passed (44 files); `npm run gate` green (unit tests, build, 58/58 smoke +
+7/7 event, 49/49 responsive, 8/8 PWA). The offline reload initially rendered the shell document
+without its JavaScript: the preview server tags the shell with `Vary: Origin` and an entry filled by
+`cache.add()` carries no `Origin`, so a header-sensitive lookup missed the cached bundle. The shell
+lookup now ignores `Vary`, which is safe because the handler only serves same-origin requests.
+
+The icons are deterministic placeholders from `scripts/generate-icons.mjs`; a signed-off art pack
+remains an owner decision on the non-TDD art track.
 
 ### P7 — accessibility hardening
 

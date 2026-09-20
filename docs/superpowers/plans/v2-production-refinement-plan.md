@@ -971,7 +971,7 @@ For each artifact delivered, append a one-line acceptance note (who approved, wh
 | P5 | Achievements | complete | +14 | Evidence block P5 |
 | P6 | Settings + notation + safe reset | complete | +20 | Evidence block P6 |
 | P7 | Accessibility | complete | +12 | Evidence block P7 |
-| P8 | PWA | pending | — | — |
+| P8 | PWA | complete | +12 | Evidence block P8 |
 | P9 | Game-feel + UX polish | pending | — | — |
 | P10 | Onboarding | pending | — | — |
 | P11 | Audio | pending | — | — |
@@ -1127,6 +1127,41 @@ NOTE:   The approved windows are now: Depth 2 10-20m, Depth 3 1-2h, Depth 4 4-8h
         first prestige within 4h, offline at the 24h cap <=50% of a day of active play. Both
         reference strategies land inside every window (greedy 10.9m/65.6m/5.54h/28.87h, balanced
         14.8m/93.8m/7.82h/41.22h), which is the point of having two lines.
+
+### Phase 8 — task: installable PWA with an offline app shell
+RED:    npm test -- --run tests/ui/pwaManifest.test.js tests/platform/serviceWorker.test.js
+        `Error: Cannot find module '../../src/platform/serviceWorker.js' imported from
+        tests/platform/serviceWorker.test.js`;
+        `Error: ENOENT: no such file or directory, open '.../public/manifest.webmanifest'`
+        (0 tests collected in both files).
+GREEN:  12 focused tests pass; full suite 523 pass (44 files); `npm run gate` green
+        (58/58 smoke + 7/7 event, 49/49 responsive, 8/8 pwa).
+MUTATION: (a) replaced the adapter's `catch` with `throw error` -> the two structured-failure tests
+            failed (reverted).
+        (b) removed `caches.delete` from the worker's activate handler -> the superseded-cache test
+            failed (reverted).
+DEFECTS FOUND: the offline reload rendered the shell document but failed to load the hashed JS and
+        CSS, so the game never booted — while the cache clearly held both under exactly the
+        requested URLs. Cause: the preview server tags the shell with `Vary: Origin`, while an entry
+        filled by `cache.add()` carries no `Origin`; a `crossorigin` script or stylesheet request
+        does send one, so a header-sensitive `caches.match(request)` missed the entry that was
+        sitting in the cache. The shell lookup now passes `ignoreVary` (safe because the handler
+        only serves same-origin requests), and the offline failure detail now names every failed
+        request URL. Also: the first version of the "derives its cache list" test pinned
+        `script[src]` / `link[href]` selector syntax, which a worker cannot use (no `DOMParser`);
+        that test was the defective one, and it now asserts the honest contract instead — the worker
+        reads the built HTML text and hardcodes no hashed asset name.
+FILES:  public/manifest.webmanifest (new), public/sw.js (new), public/icons/{icon-192,icon-512,
+        icon-maskable-512}.png (new, generated), src/platform/serviceWorker.js (new),
+        scripts/browser-pwa.mjs (new), scripts/generate-icons.mjs (new), index.html,
+        src/main.js (registration), src/data/config.js (`pwa.*`), package.json (`test:browser:pwa`),
+        scripts/gate.mjs (PWA step), tests/ui/pwaManifest.test.js (new),
+        tests/platform/serviceWorker.test.js (new).
+DOX:    src/platform/AGENTS.md, src/data/AGENTS.md, scripts/AGENTS.md, tests/AGENTS.md,
+        docs/implementation-status.md (ledger + P8 entry + next-phase note).
+NOTE:   The icons are deterministic placeholders produced by `scripts/generate-icons.mjs`, not a
+        signed-off CC0 pack. Sourcing that pack stays an owner decision on the non-TDD art track,
+        and the generator retires when it lands.
 
 ### Phase N — task: <behavior name>
 RED:    npm test -- --run tests/<area>/<file>.test.js

@@ -109,6 +109,15 @@ export const config = deepFreeze({
     tickMs: 200,
   },
 
+  pwa: {
+    /**
+     * Registration target for the offline app shell. Script and scope are relative so the static
+     * build stays deployable from any path, matching `base: './'` in `vite.config.js`.
+     */
+    serviceWorkerUrl: './sw.js',
+    serviceWorkerScope: './',
+  },
+
   automation: {
     /** Auto-buy stops raising a single drill past this owned count, so it can never run away. */
     autoBuySafetyBound: 500,

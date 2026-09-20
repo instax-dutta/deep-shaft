@@ -22,6 +22,10 @@
 - `config.numbers.implementation` selects the magnitude backend (`'big'` default, `'float'` for
   debugging). It is the only switch for the numeric representation; no gameplay module may branch
   on it.
+- `config.pwa` carries the service worker URL and scope. They stay relative so the build remains
+  deployable from any path, matching `base: './'`; the platform adapter reads them instead of
+  restating a path. The worker's own cache name and shell list live in `public/sw.js`, because a
+  copied static asset cannot import this module.
 - Pacing here is defended, not placeholder, and the approved P12 windows live in
   `tests/core/simulation.test.js`: Depth 2 in 10–20 minutes, Depth 3 in 1–2 hours, Depth 4 in
   4–8 hours, Depth 5 in 24–48 hours, first prestige available within 4 hours, and offline catch-up
