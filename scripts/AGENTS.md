@@ -23,6 +23,11 @@
   committed. It reads its key list from `src/data/artPack.js` and its colours from
   `src/data/artPalette.js`, so it cannot render art the pack does not declare, and it throws on a
   key with no recipe rather than skipping it.
+- `review-screenshot.mjs` decodes a PNG (8-bit, non-interlaced) and prints a contrast-normalised
+  luminance map plus colour statistics, optionally for a `--crop`. It is how a rendered
+  `screenshots/*.png` is actually read: a screenshot is for human review, but composition and
+  "this region is flat colour" are checkable without eyes. It found the stretched rail tile. It is
+  a review aid, not a gate.
 - `generate-art.mjs --preview=<key|file>` prints a contrast-normalised luminance map of one asset.
   Art is judged by eye and the terminal is the only eye available while authoring; the report line
   (`coverage`, `colours`, `contrast`) is what distinguishes "textured" from "flat colour once
@@ -80,8 +85,10 @@
 - Scripts exit non-zero when any check fails, so they are usable as a gate.
 - Checks assert observable player-facing behavior (rendered values, enabled/disabled controls,
   visible notifications) rather than internal state.
-- `browser-smoke.mjs` writes `screenshots/shaft.png` for visual review. Canvas rendering cannot be
-  asserted pixel-by-pixel without an image decoder, so a human has to look at it.
+- `browser-smoke.mjs` writes `screenshots/shaft.png` for visual review. Canvas rendering is not
+  asserted pixel-by-pixel, so a human has to look at it — and `review-screenshot.mjs` is the reader
+  that makes looking possible from a terminal. That review is not optional: it is what caught the
+  rail tile being stretched 9.4× instead of repeating, which no assertion in this directory covered.
 
 ## Local Contracts (continued)
 - **A service worker's install must cache what the page fetches at runtime, not only what the HTML

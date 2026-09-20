@@ -955,7 +955,11 @@ and *icons plus in-game shaft art*). Delivered 2026-09-20: ten in-game textures 
 rendered by `scripts/generate-art.mjs`, contract-tested by `tests/data/artPack.test.js`, load-tested
 by `scripts/browser-smoke.mjs`, and captured for review at `screenshots/shaft.png`. No third-party
 assets and therefore no attribution obligation; the CC0-pack decision is closed as *not taken*.
-The art's acceptance is still a human judgement of `screenshots/shaft.png`, which no test replaces.
+The art's acceptance is still a human judgement of `screenshots/shaft.png`, which no test replaces —
+and that review immediately earned its keep: decoding the screenshot (`scripts/review-screenshot.mjs`)
+showed the rail texture scaled to fill the shaft height, turning its 32-pixel ladder into one
+66-pixel wooden block. Fixed by leaving the rail at its natural vertical scale, with a test in
+`tests/scenes/shaftVisual.test.js` so it cannot silently return.
 
 ---
 

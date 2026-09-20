@@ -157,6 +157,14 @@ and never appears in `index.html`.
 Evidence: full suite 541 passed (45 files); `npm run gate` green (59/59 smoke, 7/7 event, 49/49
 responsive, 9/9 PWA); `screenshots/shaft.png` rendered for human review.
 
+**Screenshot review.** Reviewing the rendered shaft with `scripts/review-screenshot.mjs` (a PNG
+decoder that prints a luminance map and colour statistics) found one real defect the art contract
+tests could not see: the rail texture was scaled to fill the shaft height, so its 32-pixel ladder
+pattern rendered as a single 66-pixel wooden block instead of repeating down the shaft. The rail now
+squashes to the strip width but keeps its natural height, and `tests/scenes/shaftVisual.test.js`
+asserts that (`expected 15 to be 1` was the recorded RED). Both steel rails and the repeating
+sleepers are now visible in the strip.
+
 ### P8 — installable PWA with an offline app shell
 
 `public/manifest.webmanifest` declares Deep Shaft as a standalone app with 192, 512, and maskable

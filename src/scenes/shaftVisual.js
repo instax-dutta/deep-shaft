@@ -187,7 +187,9 @@ export function shaftLayoutFor(state, viewport = {}, options = {}) {
         height,
         textureKey: RAIL_KEY,
         tileScaleX: railWidth / rail.width,
-        tileScaleY: height / rail.height,
+        // The rail art is a repeating ladder, so it is squashed to the strip width but left at its
+        // natural height. Filling the shaft height instead stretched one rung into a huge block.
+        tileScaleY: 1,
       }),
       Object.freeze({
         left: width - railWidth,
@@ -196,7 +198,7 @@ export function shaftLayoutFor(state, viewport = {}, options = {}) {
         height,
         textureKey: RAIL_KEY,
         tileScaleX: railWidth / rail.width,
-        tileScaleY: height / rail.height,
+        tileScaleY: 1,
       }),
     ]),
     surfaceLine: Object.freeze({ y: 0, height: SURFACE_LINE_HEIGHT }),

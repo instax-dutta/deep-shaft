@@ -214,6 +214,18 @@ describe('shaftLayoutFor art pack usage', () => {
     }
   });
 
+  it('repeats the rail pattern down the shaft instead of stretching one tile', () => {
+    // The rail art is a ladder: sleepers every 32 pixels. Scaling it to fill the shaft height
+    // stretched a single rung into a 66-pixel block and the ladder disappeared.
+    const state = createInitialState();
+    state.depthTier = 3;
+
+    for (const rail of shaftLayoutFor(state, VIEWPORT).rails) {
+      expect(rail.tileScaleY).toBe(1);
+      expect(rail.height / rail.tileScaleY).toBeGreaterThanOrEqual(artPack[RAIL_KEY].height);
+    }
+  });
+
   it('places mineral sprites drawn from the pack, in every category, on every stratum', () => {
     const state = createInitialState();
     state.depthTier = 4;
