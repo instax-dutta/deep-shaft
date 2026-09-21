@@ -677,6 +677,41 @@ body {
   resize: vertical;
 }
 
+/* --- Tutorial ------------------------------------------------------------- */
+
+.tutorial {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #26211b;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+}
+
+.tutorial[hidden] {
+  display: none;
+}
+
+.tutorial__instruction {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.tutorial__dismiss {
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 /* --- Confirm dialog ------------------------------------------------------ */
 
 .confirm__dialog {

@@ -17,6 +17,7 @@ import { getPrestigeUpgrade } from '../data/prestigeUpgrades.js';
 import { createEventState } from './events.js';
 import { M } from './numbers/magnitude.js';
 import { normalizeSettings } from './settings.js';
+import { createTutorialState } from './tutorial.js';
 import { normalizeWorker } from './workers.js';
 
 export const SAVE_SCHEMA_VERSION = config.persistence.schemaVersion;
@@ -148,6 +149,18 @@ function sanitizeSettings(value) {
   return normalizeSettings(value);
 }
 
+/** Repairs the tutorial record: a fresh step count is the only usable fallback. */
+function sanitizeTutorial(value) {
+  const candidate = isRecord(value) ? value : {};
+  const tutorial = createTutorialState();
+  const step = toNonNegativeIntegerOrNull(candidate.step);
+  if (step !== null && step >= 1) {
+    tutorial.step = step;
+  }
+  tutorial.completed = candidate.completed === true;
+  return tutorial;
+}
+
 /** A brand new mine: Tier 1, nothing owned, nothing earned. */
 export function createInitialState() {
   return {
@@ -169,6 +182,8 @@ export function createInitialState() {
       manualExtractions: 0,
     },
     settings: sanitizeSettings(null),
+    // The first-run tutorial. A career fact, not run progress: prestige never re-runs it.
+    tutorial: createTutorialState(),
     // Automation unlocks are gated by prestige upgrades; these toggles are the player's opt-in
     // and default off, so a locked or unused behaviour never runs.
     automation: sanitizeAutomation(null),
@@ -190,6 +205,7 @@ export const MIGRATIONS = Object.freeze({
     ...save,
     schemaVersion: 2,
     settings: sanitizeSettings(save.settings),
+    tutorial: sanitizeTutorial(save.tutorial),
   }),
 });
 
@@ -245,6 +261,7 @@ function sanitizeState(candidate) {
       manualExtractions: toCount(stats.manualExtractions, base.stats.manualExtractions),
     },
     settings: sanitizeSettings(candidate.settings),
+    tutorial: sanitizeTutorial(candidate.tutorial),
     automation: sanitizeAutomation(candidate.automation),
     achievements: sanitizeAchievements(candidate.achievements),
     // Events are transient: a cave-in from the previous session must not still be stinging, so

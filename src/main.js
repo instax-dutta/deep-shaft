@@ -14,6 +14,7 @@ import { advanceProduction } from './core/production.js';
 import { mineManually, sellAll, sellCategory } from './core/resources.js';
 import { setSetting } from './core/settings.js';
 import { createInitialState } from './core/state.js';
+import { TUTORIAL_EVENTS, advanceTutorial, tutorialState } from './core/tutorial.js';
 import {
   assignWorker,
   dismissWorker,
@@ -42,6 +43,7 @@ import { createPrestigePanel } from './ui/prestigePanel.js';
 import { createSettingsPanel, settingsRootClasses } from './ui/settingsPanel.js';
 import { createShopPanel } from './ui/shopPanel.js';
 import { createToast } from './ui/toast.js';
+import { createTutorialPanel } from './ui/tutorialPanel.js';
 import { createWorkerPanel } from './ui/workerPanel.js';
 
 /** Player-facing copy for refused commands — refusals are explained, never silent. */
@@ -160,6 +162,7 @@ function boot() {
     announce: (message, options) => toast.show(message, options),
   });
   const settingsPanel = createSettingsPanel({ root: panelHost, dispatch: (command) => dispatch(command) });
+  const tutorialPanel = createTutorialPanel({ root: panelHost, dispatch: (command) => dispatch(command) });
 
   // Screen readers hear milestone crossings once, not a value churning every tick.
   const liveRegion = createLiveRegion({ root: panelHost });
@@ -180,7 +183,13 @@ function boot() {
     prestigePanel.render(state);
     achievementsPanel.render(state);
     settingsPanel.render(state);
+    tutorialPanel.render(state);
     announcer.update(state);
+  }
+
+  /** Walks the tutorial forward after a successful command; a completed or skipped one ignores it. */
+  function tutor(event) {
+    advanceTutorial(state, event);
   }
 
   // A player-initiated message holds the toast for a moment, so a lower-priority notice (an
@@ -202,6 +211,7 @@ function boot() {
       case 'mine': {
         // The result is returned so the shaft can show what a tap produced.
         const result = mineManually(state);
+        tutor(TUTORIAL_EVENTS.MINED);
         render();
         return result;
       }
@@ -215,6 +225,7 @@ function boot() {
         } else {
           notify('Nothing to sell yet.');
         }
+        tutor(TUTORIAL_EVENTS.SOLD);
         break;
       }
 
@@ -230,6 +241,7 @@ function boot() {
         } else {
           notify('Nothing to sell yet.');
         }
+        tutor(TUTORIAL_EVENTS.SOLD);
         break;
       }
 
@@ -244,6 +256,7 @@ function boot() {
             `Bought ${result.quantity} ${getDrill(command.drillId)?.name ?? 'drill'} for ${formatNumber(result.cost)}.`,
             { tone: 'good' },
           );
+          tutor(TUTORIAL_EVENTS.BOUGHT_DRILL);
         }
         break;
       }
@@ -356,6 +369,18 @@ function boot() {
         break;
       }
 
+      case 'advanceTutorial': {
+        const result = advanceTutorial(state, command.event);
+        if (!result.ok && command.event === TUTORIAL_EVENTS.DISMISSED) {
+          // Skipping is always allowed: mark the tutorial done so it never reappears.
+          state.tutorial.completed = true;
+          state.tutorial.step = tutorialState(state).total;
+        } else if (!result.ok) {
+          refuse(result.reason);
+        }
+        break;
+      }
+
       case 'setAutomation': {
         const result = setAutomation(state, command.kind, command.enabled);
         if (!result.ok) {
@@ -373,6 +398,7 @@ function boot() {
           notify(`Dug deeper — now working ${tier ? tier.name : `tier ${result.tier}`}.`, {
             tone: 'good',
           });
+          tutor(TUTORIAL_EVENTS.DUG);
         }
         break;
       }

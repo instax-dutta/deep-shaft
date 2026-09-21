@@ -105,6 +105,10 @@ try {
   reporter.check('the production build keeps the shipped event pacing (nothing fires early)',
     (await text(page, 'status')) === '', await text(page, 'status'));
 
+  reporter.check('a fresh player is coached into the first action',
+    (await text(page, 'tutorial')).includes('Tap the shaft'),
+    await text(page, 'tutorial'));
+
   const canvas = page.locator('#shaft canvas');
   for (let tap = 0; tap < 20; tap += 1) {
     await canvas.click({ position: { x: 120, y: 240 } });
@@ -124,6 +128,12 @@ try {
   reporter.check('a purchase confirms the amount spent',
     (await page.locator('.toast').innerText()).includes('Bought 1 Hand Drill for'),
     await page.locator('.toast').innerText());
+
+  reporter.check('the tutorial advances past mining, selling, and buying',
+    (await text(page, 'tutorial')).includes('Dig deeper'),
+    await text(page, 'tutorial'));
+  await page.locator('[data-action="dismiss-tutorial"]').click();
+  reporter.check('skipping the tutorial hides it', await page.locator('.tutorial').isHidden());
   reporter.check('the HUD reports a production rate', (await text(page, 'rate')).includes('/s'),
     await text(page, 'rate'));
 
@@ -154,6 +164,8 @@ try {
   await page.waitForTimeout(600);
   reporter.check('progress survives a reload', Number(await text(page, 'currency')) > 0,
     `currency ${await text(page, 'currency')}`);
+  reporter.check('a skipped tutorial stays skipped after a reload',
+    await page.locator('.tutorial').isHidden());
 
   // Backdating must happen in an init script: the unload handler writes a fresh save during the
   // reload, so an edit made before reloading would be clobbered and credit no time at all.
