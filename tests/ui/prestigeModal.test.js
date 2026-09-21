@@ -80,13 +80,14 @@ describe('prestigeModal', () => {
 
   it('promises the multiplier the player will gain', () => {
     const { modal, field, trigger } = mount();
+    // A 2M run sits below the +1 gain floor, so the promise is the floor: +1, next x2.
     const state = readyState(THRESHOLD * 2);
     modal.render(state);
 
     trigger().click();
 
-    expect(field('prestige-gain').textContent).toMatch(/\+0\.5/);
-    expect(field('prestige-next').textContent).toContain('1.5');
+    expect(field('prestige-gain').textContent).toMatch(/\+1/);
+    expect(field('prestige-next').textContent).toContain('2');
   });
 
   it('names the penalty in full rather than hiding it', () => {
