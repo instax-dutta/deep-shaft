@@ -449,6 +449,42 @@ try {
   reporter.check('smoke run completed without throwing', false, String(error).split('\n')[0]);
 }
 
+// --- Two tabs, one mine -----------------------------------------------------
+// Deliberately one context: shared localStorage is the exact condition the tab guard exists for.
+// A drill produces in tab A; tab B must refuse to race it, then take over when A closes.
+try {
+  const twoTabContext = await session.newContext();
+  const owner = await openPage(twoTabContext);
+  await boot(owner, server.url, { save: JSON.stringify({ ...richSave, tutorial: { step: 5, completed: true } }) });
+
+  const second = await openPage(twoTabContext);
+  await boot(second, server.url);
+
+  reporter.check('a second tab is told the mine is open elsewhere',
+    (await second.locator('.toast').innerText()).includes('already open in another tab'),
+    JSON.stringify(await second.locator('.toast').innerText()));
+
+  const ownerOre = Number(await text(owner, 'ore-amount'));
+  await owner.waitForTimeout(2500);
+  const secondOre = Number(await text(second, 'ore-amount'));
+  reporter.check('the second tab does not double-produce',
+    Number(await text(owner, 'ore-amount')) > ownerOre && secondOre === Number(await text(second, 'ore-amount')),
+    `owner ${ownerOre} -> ${await text(owner, 'ore-amount')}, second ${secondOre} -> ${await text(second, 'ore-amount')}`);
+
+  await owner.close();
+  // Headless page.close() does not run beforeunload handlers, so takeover must wait out the
+  // full stale window (15s) plus one heartbeat cycle before the second tab may promote.
+  await second.waitForTimeout(17_000);
+  const before = Number(await text(second, 'ore-amount'));
+  await second.waitForTimeout(2500);
+  reporter.check('closing the owner hands the mine to the second tab',
+    Number(await text(second, 'ore-amount')) > before,
+    `${before} -> ${await text(second, 'ore-amount')}`);
+  await twoTabContext.close();
+} catch (error) {
+  reporter.check('the two-tab scenario completed without throwing', false, String(error).split('\n')[0]);
+}
+
 await session.close();
 await server.close();
 

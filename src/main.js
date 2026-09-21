@@ -32,6 +32,7 @@ import { createClock } from './platform/clock.js';
 import { createAudio, createWebAudioBackend } from './platform/audio.js';
 import { createDiagnostics } from './platform/diagnostics.js';
 import { createLifecycle } from './platform/lifecycle.js';
+import { createTabGuard } from './platform/tabGuard.js';
 import { createLocalStorageBackend, createStorage } from './platform/storage.js';
 import { registerServiceWorker } from './platform/serviceWorker.js';
 import { BootScene } from './scenes/BootScene.js';
@@ -225,9 +226,10 @@ function boot({ diagnostics } = {}) {
   let importantUntil = 0;
   let pendingAchievements = [];
 
-  function notify(message, options) {
-    importantUntil = clock.now() + config.ui.toastHoldMs;
-    toast.show(message, options);
+  function notify(message, options = {}) {
+    // A player-initiated message holds the slot; boot-critical messages can ask for longer.
+    importantUntil = clock.now() + (options.holdMs ?? config.ui.toastHoldMs);
+    toast.show(message, { tone: options.tone });
   }
 
   function refuse(reason) {
@@ -489,11 +491,15 @@ function boot({ diagnostics } = {}) {
     const elapsed = (now - lastTick) / 1000;
     lastTick = now;
 
-    // Production runs first so a cave-in that starts this tick only affects the next one.
-    advanceProduction(state, elapsed);
-    // Automation acts on the resources production just banked, using the same commands a tap
-    // would issue. Its actions are silent: the resulting state is visible in the HUD.
-    runAutomation(state, elapsed);
+    // Production runs first so a cave-in that starts this tick only affects the next one. A
+    // non-owner tab idles: the owning tab is producing and saving, and racing it would corrupt
+    // the shared save.
+    if (isOwner()) {
+      advanceProduction(state, elapsed);
+      // Automation acts on the resources production just banked, using the same commands a tap
+      // would issue. Its actions are silent: the resulting state is visible in the HUD.
+      runAutomation(state, elapsed);
+    }
 
     // Achievements are evaluated once per tick rather than at every stat change: one call site,
     // and a newly earned goal is announced exactly once because evaluation is idempotent.
@@ -520,10 +526,34 @@ function boot({ diagnostics } = {}) {
     render();
   }, config.loop.tickMs);
 
-  window.setInterval(save, config.persistence.autosaveIntervalMs);
+  window.setInterval(() => {
+    if (isOwner()) {
+      save();
+    }
+  }, config.persistence.autosaveIntervalMs);
 
   const lifecycle = createLifecycle();
   lifecycle.start({ onHidden: save, onUnload: save });
+
+  // One mine, one owner: a second tab of the same save runs read-only and is told so, instead of
+  // two mines racing for the same storage key.
+  const tabGuard = createTabGuard();
+  const role = tabGuard.start();
+  lifecycle.start({
+    onUnload: () => tabGuard.stop(),
+  });
+  const isOwner = () => tabGuard.role() === 'primary';
+  if (role !== 'primary') {
+    // Held long enough to survive slow loads and the first announcements: a player who misses
+    // why their second tab is idle is confused, not informed.
+    notify('This mine is already open in another tab — progress is saved from there.', {
+      tone: 'warn',
+      holdMs: 10_000,
+    });
+  }
+
+  // A background owner keeps its claim fresh; a secondary keeps trying in case the owner dies.
+  window.setInterval(() => tabGuard.heartbeat(), 4000);
 
   // Installability is a bonus rather than a requirement: the adapter reports an unsupported
   // browser or a failed registration structurally, and the game plays on from the page it already
