@@ -1,0 +1,11 @@
+{
+  "appId": "pro.sdad.deepshaft",
+  "appName": "Deep Shaft",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

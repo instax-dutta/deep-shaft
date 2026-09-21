@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Deep Shaft</string>
+    <string name="title_activity_main">Deep Shaft</string>
+    <string name="package_name">pro.sdad.deepshaft</string>
+    <string name="custom_url_scheme">pro.sdad.deepshaft</string>
+</resources>

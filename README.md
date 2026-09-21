@@ -83,6 +83,31 @@ Upload the contents of `dist/` — Apache, Caddy, `python3 -m http.server`, an S
 - `index.html` and `sw.js` should be served with `Cache-Control: no-cache`.
 - Hashed `/assets/*` files may be cached forever (`immutable`).
 
+### Android app (APK, no store needed)
+
+The game ships as a Capacitor-wrapped Android app with the whole bundle inside, so it plays
+fully offline and installs from a file.
+
+```bash
+npm run apk          # web build -> cap sync -> gradle assembleDebug -> releases/deep-shaft.apk
+```
+
+Building needs the Android SDK (JDK 17+ plus `platforms;android-36`, `build-tools;36.0.0` via
+`sdkmanager`), pointed at by `android/local.properties` (`sdk.dir=...`) — not committed, it is
+machine-specific. The generated Android project lives in `android/`.
+
+Share `releases/deep-shaft.apk` directly. On a friend's phone: open the APK (a file manager or
+Chrome downloads), accept the one-time "install unknown apps" prompt, done. The debug APK is
+self-signed, which is exactly right for sideloading — it only means Play Protect will note that
+the signature is unknown, which is expected.
+
+- Saves live in the app's own storage: fresh install = fresh mine, uninstall deletes progress.
+  The in-game Settings > Export/Import is the backup path.
+- Regenerating the launcher icon/splash: edit `scripts/generate-app-assets.mjs`, run it, then
+  `npx @capacitor/assets generate --android --assetPath assets`.
+- iOS is intentionally not set up yet; when it is, the same `assets/` feed
+  `npx @capacitor/assets generate --ios`.
+
 ## Self-hosting notes
 
 - **HTTPS:** the PWA offline shell only activates in a secure context. `localhost` counts;
