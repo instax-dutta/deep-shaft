@@ -19,6 +19,9 @@ const STEPS = [
   { label: 'Browser responsive layout', command: 'npm', args: ['run', 'test:browser:responsive'] },
   { label: 'Browser shaft render', command: 'npm', args: ['run', 'test:browser:render'] },
   { label: 'Browser PWA + offline', command: 'npm', args: ['run', 'test:browser:pwa'] },
+  { label: 'Browser soak (30s)', command: 'npm', args: ['run', 'test:browser:soak'] },
+  { label: 'Browser perf', command: 'npm', args: ['run', 'test:browser:perf'] },
+  { label: 'Boot failure fallback', command: 'npm', args: ['run', 'test:browser:boot-failure'] },
 ];
 
 function runStep(step) {

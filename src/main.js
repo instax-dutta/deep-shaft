@@ -30,12 +30,14 @@ import { getResource } from './data/resources.js';
 import { SOUND_IDS, getSound } from './data/sounds.js';
 import { createClock } from './platform/clock.js';
 import { createAudio, createWebAudioBackend } from './platform/audio.js';
+import { createDiagnostics } from './platform/diagnostics.js';
 import { createLifecycle } from './platform/lifecycle.js';
 import { createLocalStorageBackend, createStorage } from './platform/storage.js';
 import { registerServiceWorker } from './platform/serviceWorker.js';
 import { BootScene } from './scenes/BootScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { createAchievementsPanel } from './ui/achievementsPanel.js';
+import { createBootFallback } from './ui/bootFallback.js';
 import { createDepthPanel } from './ui/depthPanel.js';
 import { createElement } from './ui/dom.js';
 import { createHud } from './ui/hud.js';
@@ -109,7 +111,7 @@ function describeDuration(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
-function boot() {
+function boot({ diagnostics } = {}) {
   const root = document.getElementById('app-root');
   if (!root) {
     throw new Error('Missing #app-root host element in index.html');
@@ -163,8 +165,17 @@ function boot() {
     root: panelHost,
     announce: (message, options) => toast.show(message, options),
   });
-  const settingsPanel = createSettingsPanel({ root: panelHost, dispatch: (command) => dispatch(command) });
+  const settingsPanel = createSettingsPanel({
+    root: panelHost,
+    dispatch: (command) => dispatch(command),
+    diagnostics,
+    version: appVersion(),
+  });
   const tutorialPanel = createTutorialPanel({ root: panelHost, dispatch: (command) => dispatch(command) });
+
+  // Post-boot errors are non-fatal: the running game stays interactive, and the problem is
+  // visible in Settings > Diagnostics rather than vanishing into the console.
+  notifyWhileRunning = (message) => notify(message, { tone: 'warn' });
 
   // Screen readers hear milestone crossings once, not a value churning every tick.
   const liveRegion = createLiveRegion({ root: panelHost });
@@ -523,4 +534,55 @@ function boot() {
   render();
 }
 
-boot();
+/** The build version, injected by Vite's `define` so the source never reads package.json. */
+function appVersion() {
+  try {
+    return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '';
+  } catch {
+    return '';
+  }
+}
+
+/** Set once a game is running, so post-boot errors show an in-game notice instead of the fallback. */
+let notifyWhileRunning = null;
+
+/**
+ * Guards boot: a page that cannot start must never be blank.
+ *
+ * The guard registers global error handlers first, so a failure during boot itself is recorded
+ * and explained by the boot fallback rather than lost. An error *after* a successful boot shows
+ * a non-fatal notice in the running game instead.
+ */
+function guardedBoot() {
+  const diagnostics = createDiagnostics({ now: () => Date.now() });
+
+  window.addEventListener('error', (event) => {
+    const recorded = diagnostics.record(event.error ?? event.message ?? 'unknown error');
+    if (typeof notifyWhileRunning === 'function') {
+      notifyWhileRunning('Something went wrong — the mine kept running. See Settings > Diagnostics.');
+    } else {
+      const host = document.getElementById('app-root') ?? document.body;
+      const fallback = createBootFallback({ host, version: appVersion() });
+      fallback.show(recorded.recorded || 'an unknown error');
+    }
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    diagnostics.record(event.reason);
+  });
+
+  try {
+    // A verification-only build constant: defined at build time by a harness, always undefined
+    // in a production build, so this branch is dead code there.
+    if (import.meta.env.VITE_FORCE_BOOT_FAILURE === '1') {
+      throw new Error('boot failure forced by the verification build');
+    }
+    boot({ diagnostics });
+  } catch (error) {
+    diagnostics.record(error);
+    const host = document.getElementById('app-root') ?? document.body;
+    const fallback = createBootFallback({ host, version: appVersion() });
+    fallback.show(error instanceof Error ? error.message : String(error));
+  }
+}
+
+guardedBoot();

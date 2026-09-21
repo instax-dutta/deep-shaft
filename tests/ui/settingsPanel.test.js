@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createInitialState } from '../../src/core/state.js';
+import { createDiagnostics } from '../../src/platform/diagnostics.js';
 import { createSettingsPanel, settingsRootClasses } from '../../src/ui/settingsPanel.js';
 
 function setup() {
@@ -160,5 +161,47 @@ describe('settingsPanel volume', () => {
     slider.dispatchEvent(new Event('input'));
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'setSetting', key: 'volume', value: 0.25 });
+  });
+});
+
+describe('settingsPanel diagnostics view', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function mountWithDiagnostics(diagnostics, state) {
+    document.body.innerHTML = '';
+    const dispatch = vi.fn();
+    const panel = createSettingsPanel({ root: document.body, dispatch, diagnostics });
+    panel.render(state ?? createInitialState());
+    return panel;
+  }
+
+  it('reports how many problems were recorded', () => {
+    const diagnostics = createDiagnostics();
+    diagnostics.record('first failure');
+    diagnostics.record('second failure');
+    const panel = mountWithDiagnostics(diagnostics);
+
+    const view = panel.element.querySelector('[data-field="diagnostics-report"]');
+    expect(view).not.toBeNull();
+    expect(view.textContent).toContain('2');
+  });
+
+  it('shows the app version', () => {
+    const panel = mountWithDiagnostics(createDiagnostics());
+
+    const view = panel.element.querySelector('[data-field="diagnostics-report"]');
+    expect(view.textContent).toMatch(/version/i);
+  });
+
+  it('renders recorded messages without save contents', () => {
+    const diagnostics = createDiagnostics();
+    diagnostics.record('render crashed near currency 1000');
+    const panel = mountWithDiagnostics(diagnostics);
+
+    const view = panel.element.querySelector('[data-field="diagnostics-report"]');
+    expect(view.textContent).toContain('render crashed');
+    expect(view.textContent).not.toContain('currency');
   });
 });

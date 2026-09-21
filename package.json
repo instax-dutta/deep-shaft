@@ -11,7 +11,7 @@
     "gate": "node scripts/gate.mjs",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "test:browser": "npm run test:browser:smoke && npm run test:browser:events && npm run test:browser:responsive && npm run test:browser:render && npm run test:browser:pwa",
+    "test:browser": "npm run test:browser:smoke && npm run test:browser:events && npm run test:browser:responsive && npm run test:browser:pwa && npm run test:browser:render && npm run test:browser:boot-failure",
     "test:browser:smoke": "node scripts/browser-smoke.mjs",
     "test:browser:events": "node scripts/browser-events.mjs",
     "test:browser:responsive": "node scripts/browser-responsive.mjs",
@@ -20,7 +20,8 @@
     "test:browser:soak": "node scripts/browser-soak.mjs",
     "test:browser:perf": "node scripts/browser-perf.mjs",
     "test:browser:all": "npm run test:browser && npm run test:browser:cross",
-    "test:browser:cross": "node scripts/browser-cross.mjs"
+    "test:browser:cross": "node scripts/browser-cross.mjs",
+    "test:browser:boot-failure": "node scripts/browser-boot-failure.mjs"
   },
   "dependencies": {
     "break_eternity.js": "^2.1.3",

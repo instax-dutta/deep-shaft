@@ -59,7 +59,7 @@ function createToggleRow(key, labelText, dispatch) {
   return { row, input };
 }
 
-export function createSettingsPanel({ dispatch } = {}) {
+export function createSettingsPanel({ dispatch, diagnostics, version = '' } = {}) {
   const notation = createElement('select', {
     className: 'settings__notation',
     attrs: { id: 'setting-notation', 'data-setting': 'notation' },
@@ -102,6 +102,10 @@ export function createSettingsPanel({ dispatch } = {}) {
     },
   });
   const importError = field('import-error', '');
+
+  // Diagnostics: a bounded, local-only problem log and the version, so a player reporting an
+  // issue has something concrete to hand over. Rendered in a closed details element by default.
+  const diagnosticsReport = field('diagnostics-report', '');
 
   const exportButton = createElement('button', {
     className: 'settings__action',
@@ -154,6 +158,13 @@ export function createSettingsPanel({ dispatch } = {}) {
       createElement('h3', { className: 'panel__subtitle', text: 'Danger zone' }),
       resetButton,
       confirmModal.element,
+      createElement('details', {
+        className: 'settings__diagnostics',
+        children: [
+          createElement('summary', { text: 'Diagnostics' }),
+          diagnosticsReport,
+        ],
+      }),
     ],
   });
 
@@ -183,6 +194,13 @@ export function createSettingsPanel({ dispatch } = {}) {
     soundToggle.input.checked = state.settings.sound === true;
     hapticsToggle.input.checked = state.settings.haptics === true;
     volumeInput.value = String(state.settings.volume ?? 0.6);
+
+    const report = diagnostics?.report?.();
+    diagnosticsReport.textContent = report
+      ? `Version ${version || 'unknown'} — ${report.count} problem${report.count === 1 ? '' : 's'} recorded${
+          report.errors.length > 0 ? `: ${report.errors.map((entry) => entry.message).join('; ')}` : ''
+        }`
+      : `Version ${version || 'unknown'} — no problem log.`;
   }
 
   return { element, render, confirmModal };
