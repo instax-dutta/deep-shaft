@@ -22,6 +22,9 @@ const MODES = [
 function createRow(definition, dispatch) {
   const owned = field('owned', '0');
   const unitCost = field('unit-cost', '0');
+  const x10Cost = field('mode-cost-x10', '');
+  const maxCount = field('mode-cost-max-count', '');
+  const maxTotal = field('mode-cost-max-total', '');
   const lockHint = createElement('span', {
     className: 'shop__lock',
     attrs: { 'data-field': 'lock' },
@@ -61,11 +64,20 @@ function createRow(definition, dispatch) {
         className: 'shop__cost',
         children: [document.createTextNode('Cost '), unitCost, lockHint],
       }),
+      createElement('div', {
+        className: 'shop__mode-costs',
+        children: [
+          x10Cost,
+          document.createTextNode(' '),
+          maxCount,
+          maxTotal,
+        ],
+      }),
       actions,
     ],
   });
 
-  return { definition, row, owned, unitCost, lockHint, buttons };
+  return { definition, row, owned, unitCost, x10Cost, maxCount, maxTotal, lockHint, buttons };
 }
 
 export function createShopPanel({ root, dispatch } = {}) {
@@ -89,7 +101,7 @@ export function createShopPanel({ root, dispatch } = {}) {
     const notation = state.settings?.notation ?? 'suffix';
     const fmt = (value) => formatNumber(value, { notation });
     for (const entry of rows) {
-      const { definition, owned, unitCost, lockHint, buttons } = entry;
+      const { definition, owned, unitCost, x10Cost, maxCount, maxTotal, lockHint, buttons } = entry;
       const count = state.drills[definition.id] ?? 0;
       const unlocked = definition.tier <= state.depthTier;
       const nextUnitCost = drillCost(definition, count, 1);
@@ -98,6 +110,23 @@ export function createShopPanel({ root, dispatch } = {}) {
       owned.textContent = fmt(count);
       unitCost.textContent = fmt(nextUnitCost);
       lockHint.textContent = unlocked ? '' : `Locked — reach Depth ${definition.tier}`;
+
+      // Bulk buttons act without confirmation, so the player sees the real totals before clicking.
+      if (unlocked) {
+        x10Cost.textContent = `x10 for ${fmt(drillCost(definition, count, 10))}`;
+        const affordable = maxAffordable(definition, count, state.currency);
+        if (affordable > 0) {
+          maxCount.textContent = `Max buys ${fmt(affordable)}`;
+          maxTotal.textContent = ` for ${fmt(drillCost(definition, count, affordable))}`;
+        } else {
+          maxCount.textContent = 'Max: none affordable yet';
+          maxTotal.textContent = '';
+        }
+      } else {
+        x10Cost.textContent = '';
+        maxCount.textContent = '';
+        maxTotal.textContent = '';
+      }
 
       for (const { mode, quantity } of MODES) {
         const button = buttons.get(mode);

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createShopPanel } from '../../src/ui/shopPanel.js';
 import { createInitialState } from '../../src/core/state.js';
-import { drillCost } from '../../src/core/drills.js';
+import { drillCost, maxAffordable } from '../../src/core/drills.js';
 import { formatNumber } from '../../src/core/numberFormat.js';
 import { drills, getDrill } from '../../src/data/drills.js';
 
@@ -149,5 +149,59 @@ describe('shopPanel', () => {
     panel.render(createInitialState());
 
     expect(panel.element.querySelector('h2').textContent.length).toBeGreaterThan(0);
+  });
+});
+
+describe('shopPanel bulk-buy cost previews', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function mount() {
+    document.body.innerHTML = '';
+    const dispatch = vi.fn();
+    const panel = createShopPanel({ root: document.body, dispatch });
+    return panel;
+  }
+
+  it('shows what buying x10 costs beside the buttons', () => {
+    const panel = mount();
+    const state = createInitialState();
+    state.currency = 500;
+
+    panel.render(state);
+
+    const row = panel.element.querySelector('[data-drill="drill-1"]');
+    const preview = row.querySelector('[data-field="mode-cost-x10"]');
+    expect(preview).not.toBeNull();
+    // Ten hand drills: base 15 with growth 1.15 summed over ten units = 15*(1.15^10-1)/0.15.
+    expect(preview.textContent).toContain(formatNumber(drillCost(getDrill('drill-1'), 0, 10)));
+  });
+
+  it('shows how many units Max would buy and their total', () => {
+    const panel = mount();
+    const state = createInitialState();
+    state.currency = 100;
+
+    panel.render(state);
+
+    const row = panel.element.querySelector('[data-drill="drill-1"]');
+    const affordable = maxAffordable(getDrill('drill-1'), 0, 100);
+    expect(affordable).toBeGreaterThan(0);
+    expect(row.querySelector('[data-field="mode-cost-max-count"]').textContent).toContain(
+      formatNumber(affordable),
+    );
+    expect(row.querySelector('[data-field="mode-cost-max-total"]').textContent).toContain(
+      formatNumber(drillCost(getDrill('drill-1'), 0, affordable)),
+    );
+  });
+
+  it('shows nothing for a locked drill', () => {
+    const panel = mount();
+    panel.render(createInitialState());
+
+    const lockedRow = panel.element.querySelector('[data-drill="drill-3"]');
+    expect(lockedRow.querySelector('[data-field="mode-cost-x10"]').textContent).toBe('');
+    expect(lockedRow.querySelector('[data-field="mode-cost-max-count"]').textContent).toBe('');
   });
 });

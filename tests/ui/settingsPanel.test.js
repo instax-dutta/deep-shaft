@@ -205,3 +205,17 @@ describe('settingsPanel diagnostics view', () => {
     expect(view.textContent).not.toContain('currency');
   });
 });
+
+describe('settingsPanel mounts into the root', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('appends itself into the root it was given', () => {
+    document.body.innerHTML = '';
+    const panel = createSettingsPanel({ root: document.body, dispatch: vi.fn() });
+
+    expect(panel.element.isConnected).toBe(true);
+    expect(document.body.querySelectorAll('section.settings')).toHaveLength(1);
+  });
+});

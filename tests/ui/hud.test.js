@@ -220,3 +220,33 @@ describe('hud per-category selling', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'sellAll' });
   });
 });
+
+describe('hud gem and rare rates', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('shows a per-second rate for every resource category, not only ore', () => {
+    const { hud, field } = mount();
+    const state = createInitialState();
+    state.drills = { 'drill-1': 5 };
+
+    hud.render(state);
+
+    for (const name of ['gem-rate', 'rare-rate']) {
+      const rateText = field(name).textContent;
+      expect(rateText).toMatch(/\/s$/);
+    }
+    // Ore is certain, so its rate exceeds the gems rate at the same extraction.
+    expect(Number(field('rate').textContent.replace(/\/s$/, '')))
+      .toBeGreaterThan(Number(field('gem-rate').textContent.replace(/\/s$/, '')));
+  });
+
+  it('shows zero rates with no drills', () => {
+    const { hud, field } = mount();
+    hud.render(createInitialState());
+
+    expect(field('gem-rate').textContent).toBe('0/s');
+    expect(field('rare-rate').textContent).toBe('0/s');
+  });
+});

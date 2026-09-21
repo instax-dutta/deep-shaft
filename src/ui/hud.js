@@ -23,7 +23,7 @@ function statCell(labelText, valueElement) {
 }
 
 /** A resource cell showing the tier's resource name, its banked amount, and a sell control. */
-function resourceCell(labelText, nameElement, amountElement, sellButton) {
+function resourceCell(labelText, nameElement, amountElement, rateElement, sellButton) {
   return createElement('div', {
     className: 'hud__stat',
     children: [
@@ -32,6 +32,7 @@ function resourceCell(labelText, nameElement, amountElement, sellButton) {
         className: 'hud__value',
         children: [nameElement, amountElement],
       }),
+      rateElement,
       sellButton,
     ],
   });
@@ -54,8 +55,10 @@ export function createHud({ root, dispatch } = {}) {
   const oreAmount = field('ore-amount', '0');
   const gemName = field('gem-name', '—');
   const gemAmount = field('gem-amount', '0');
+  const gemRate = field('gem-rate', '0/s');
   const rareName = field('rare-name', '—');
   const rareAmount = field('rare-amount', '0');
+  const rareRate = field('rare-rate', '0/s');
   const rate = field('rate', '0/s');
   const depth = field('depth', 'Depth 1');
   const multiplier = field('multiplier', 'x1');
@@ -82,12 +85,13 @@ export function createHud({ root, dispatch } = {}) {
     attrs: { 'aria-label': 'Mine status' },
     children: [
       statCell('Currency', currency),
-      resourceCell('Ore', oreName, oreAmount, categorySellButton(RESOURCE_CATEGORIES.ORE, dispatch)),
-      resourceCell('Gems', gemName, gemAmount, categorySellButton(RESOURCE_CATEGORIES.GEMS, dispatch)),
+      resourceCell('Ore', oreName, oreAmount, null, categorySellButton(RESOURCE_CATEGORIES.ORE, dispatch)),
+      resourceCell('Gems', gemName, gemAmount, gemRate, categorySellButton(RESOURCE_CATEGORIES.GEMS, dispatch)),
       resourceCell(
         'Rare finds',
         rareName,
         rareAmount,
+        rareRate,
         categorySellButton(RESOURCE_CATEGORIES.RARE, dispatch),
       ),
       status,
@@ -116,15 +120,20 @@ export function createHud({ root, dispatch } = {}) {
     const gems = resourceFields(state, RESOURCE_CATEGORIES.GEMS);
     const rare = resourceFields(state, RESOURCE_CATEGORIES.RARE);
     const oreDefinition = resourceOfCategory(state.depthTier, RESOURCE_CATEGORIES.ORE);
-    const orePerSecond = oreDefinition
-      ? productionPerSecond(state)[oreDefinition.id] ?? 0
-      : 0;
+    const rates = productionPerSecond(state);
+    const orePerSecond = oreDefinition ? rates[oreDefinition.id] ?? 0 : 0;
 
     currency.textContent = fmt(state.currency);
     oreName.textContent = ore.name;
     oreAmount.textContent = fmt(ore.amount);
     gemName.textContent = gems.name;
     gemAmount.textContent = fmt(gems.amount);
+    // Gems and rare income is otherwise invisible: a player could not tell whether a worker on
+    // gems changed anything without mental math.
+    const gemDefinition = resourceOfCategory(state.depthTier, RESOURCE_CATEGORIES.GEMS);
+    const rareDefinition = resourceOfCategory(state.depthTier, RESOURCE_CATEGORIES.RARE);
+    gemRate.textContent = `${fmt(gemDefinition ? rates[gemDefinition.id] ?? 0 : 0)}/s`;
+    rareRate.textContent = `${fmt(rareDefinition ? rates[rareDefinition.id] ?? 0 : 0)}/s`;
     rareName.textContent = rare.name;
     rareAmount.textContent = fmt(rare.amount);
     // Shows what the player actually banks: ore per second, including workers put on ore.

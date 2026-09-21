@@ -286,6 +286,13 @@ body {
   filter: brightness(1.2);
 }
 
+.shop__mode-costs {
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  min-height: 1em;
+}
+
 /* --- Workers ------------------------------------------------------------- */
 
 .workers {

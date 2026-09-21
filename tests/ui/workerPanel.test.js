@@ -330,3 +330,20 @@ describe('workerPanel assignment gating and crew management', () => {
     expect(dialog.hidden).toBe(true);
   });
 });
+
+describe('workerPanel duplicate options', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('lists a reached drill only once, even when a worker is already on it', () => {
+    const { panel, row } = mount();
+    const roster = [worker({ assignment: { kind: 'drill', id: 'drill-1' } })];
+    panel.render(unlockedMine({ depthTier: 2, workers: roster }));
+
+    const values = [...row('worker-1').querySelectorAll('option')].map((option) => option.value);
+    const drillOptions = values.filter((value) => value.startsWith('drill:'));
+
+    expect(drillOptions).toEqual([...new Set(drillOptions)]);
+  });
+});

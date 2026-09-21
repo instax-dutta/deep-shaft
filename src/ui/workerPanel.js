@@ -50,7 +50,11 @@ function assignableDrills(state) {
       .filter((worker) => worker.assignment?.kind === ASSIGNMENT_KINDS.DRILL)
       .map((worker) => worker.assignment.id),
   );
-  return [...reached, ...Object.values(drills).filter((drill) => held.has(drill.id))];
+  const byId = new Map();
+  for (const drill of [...reached, ...Object.values(drills).filter((drill) => held.has(drill.id))]) {
+    byId.set(drill.id, drill);
+  }
+  return [...byId.values()];
 }
 
 function createAssignmentSelect(worker, dispatch) {

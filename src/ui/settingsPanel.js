@@ -59,7 +59,7 @@ function createToggleRow(key, labelText, dispatch) {
   return { row, input };
 }
 
-export function createSettingsPanel({ dispatch, diagnostics, version = '' } = {}) {
+export function createSettingsPanel({ root, dispatch, diagnostics, version = '' } = {}) {
   const notation = createElement('select', {
     className: 'settings__notation',
     attrs: { id: 'setting-notation', 'data-setting': 'notation' },
@@ -202,6 +202,8 @@ export function createSettingsPanel({ dispatch, diagnostics, version = '' } = {}
         }`
       : `Version ${version || 'unknown'} — no problem log.`;
   }
+
+  root?.append(element);
 
   return { element, render, confirmModal };
 }

@@ -83,6 +83,27 @@ try {
   );
   reporter.check('HUD renders at startup', (await page.locator('.hud').count()) === 1);
   reporter.check(
+    'every composition panel is mounted',
+    (await page.evaluate(() => ({
+      depth: document.querySelectorAll('section.depth').length,
+      shop: document.querySelectorAll('section.shop').length,
+      workers: document.querySelectorAll('section.workers').length,
+      prestige: document.querySelectorAll('section.prestige').length,
+      upgrades: document.querySelectorAll('section.upgrades').length,
+      achievements: document.querySelectorAll('section.achievements').length,
+      settings: document.querySelectorAll('section.settings').length,
+      tutorial: document.querySelectorAll('section.tutorial').length,
+    }))) !== undefined &&
+      (await page.evaluate(() => {
+        const required = ['section.depth', 'section.shop', 'section.workers', 'section.prestige', 'section.upgrades', 'section.achievements', 'section.settings', 'section.tutorial'];
+        return required.every((selector) => document.querySelector(selector) !== null);
+      })),
+  );
+  reporter.check('the settings panel offers export, import, and reset',
+    (await page.locator('[data-action="export-save"]').count()) === 1 &&
+      (await page.locator('[data-action="import-save"]').count()) === 1 &&
+      (await page.locator('[data-action="reset-game"]').count()) === 1);
+  reporter.check(
     'shop, depth, worker, and prestige panels render',
     (await page.locator('.shop').count()) === 1
       && (await page.locator('.depth').count()) === 1
