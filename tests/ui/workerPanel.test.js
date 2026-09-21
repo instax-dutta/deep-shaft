@@ -347,3 +347,41 @@ describe('workerPanel duplicate options', () => {
     expect(drillOptions).toEqual([...new Set(drillOptions)]);
   });
 });
+
+describe('workerPanel select stability', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('re-rendering an unchanged roster does not rebuild the assignment options', () => {
+    const { panel, row } = mount();
+    const state = unlockedMine({ depthTier: 2, workers: [worker()] });
+    panel.render(state);
+
+    const select = row('worker-1').querySelector('[data-field="worker-assignment"]');
+    const optionsBefore = [...select.options];
+
+    panel.render(state);
+
+    const optionsAfter = [...select.options];
+    // Node identity, not structural equality: a rebuilt <option> list glitches an open native
+    // dropdown, which is what a player sees as a "buggy" select.
+    expect(optionsAfter.length).toBe(optionsBefore.length);
+    expect(optionsAfter.every((option, index) => option === optionsBefore[index])).toBe(true);
+  });
+
+  it('still rebuilds the options when the reachable drill set changes', () => {
+    const { panel, row } = mount();
+    const state = unlockedMine({ depthTier: 1, workers: [worker()] });
+    panel.render(state);
+    const select = row('worker-1').querySelector('[data-field="worker-assignment"]');
+    const before = [...select.options].map((option) => option.value);
+
+    state.depthTier = 3;
+    panel.render(state);
+
+    const after = [...select.options].map((option) => option.value);
+    expect(before).not.toEqual(after);
+    expect(after).toContain('drill:drill-3');
+  });
+});

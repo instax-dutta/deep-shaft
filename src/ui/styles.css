@@ -29,12 +29,29 @@ body {
   color: var(--ink);
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app-root {
   display: grid;
   grid-template-rows: minmax(150px, 38vh) minmax(0, 1fr);
+  /* 100vh first: browsers that predate dvh (and old WebViews) still fill the screen. */
+  height: 100vh;
   height: 100dvh;
+  /* With viewport-fit=cover a standalone PWA paints under the notch; keep the shell clear. */
+  padding-top: env(safe-area-inset-top);
+}
+
+/*
+ * Touch ergonomics: no double-tap zoom delay, no long-press text selection on controls, no
+ * platform tap flash. Fast, predictable taps matter more than anything else on a phone.
+ */
+button,
+select,
+input,
+textarea {
+  touch-action: manipulation;
+  user-select: none;
 }
 
 /* --- Shaft ---------------------------------------------------------------- */
@@ -60,6 +77,8 @@ body {
   padding: 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   overflow-y: auto;
+  /* The page itself never rubber-bands or pull-refreshes; the panel column is the only scroller. */
+  overscroll-behavior: contain;
 }
 
 .panel__title {
@@ -676,12 +695,14 @@ body {
   width: 100%;
   min-height: 72px;
   padding: 8px;
-  font: 0.75rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* 16px, not 12px: iOS zooms into any focused control whose font-size is smaller. */
+  font: 16px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--ink);
   background: #12100e;
   border: 1px solid var(--panel-edge);
   border-radius: 8px;
   resize: vertical;
+  user-select: text;
 }
 
 /* --- Tutorial ------------------------------------------------------------- */

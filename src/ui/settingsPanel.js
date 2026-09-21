@@ -189,7 +189,11 @@ export function createSettingsPanel({ root, dispatch, diagnostics, version = '' 
 
   function render(state) {
     currentState = state;
-    notation.value = state.settings.notation;
+    // Only touch a select when its value actually changes: rendering runs every tick, and
+    // writing to a control under an open native dropdown glitches it.
+    if (notation.value !== state.settings.notation) {
+      notation.value = state.settings.notation;
+    }
     motionToggle.input.checked = state.settings.reducedMotion === true;
     soundToggle.input.checked = state.settings.sound === true;
     hapticsToggle.input.checked = state.settings.haptics === true;

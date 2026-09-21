@@ -147,6 +147,11 @@ function measure(page) {
         panelCount: visible.filter((el) =>
           el.matches('.hud, .shop, .depth, .workers, .prestige'),
         ).length,
+        // Computed per control: the double-tap zoom opt-out is only real if the browser
+        // actually applied it, which a stylesheet assertion cannot see.
+        slowTouch: [...document.querySelectorAll('button, select, input, textarea')]
+          .filter((el) => el.getBoundingClientRect().height > 0)
+          .filter((el) => getComputedStyle(el).touchAction !== 'manipulation').length,
       };
   });
 }
@@ -200,6 +205,12 @@ try {
       `${label} does not stretch a card into an unreadable line`,
       m.widestCard <= 560,
       `widest card ${m.widestCard}px`,
+    );
+
+    reporter.check(
+      `${label} keeps taps fast (no double-tap zoom delay on controls)`,
+      m.slowTouch === 0,
+      m.slowTouch > 0 ? `${m.slowTouch} controls still zoomable` : '',
     );
 
     // Measurements cannot tell whether a layout looks right, so the representative sizes are

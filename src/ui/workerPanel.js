@@ -86,6 +86,14 @@ function createAssignmentSelect(worker, dispatch) {
 
 /** Refreshes the drill options to the mine's current reach, preserving the chosen value. */
 function refreshDrillOptions(select, state) {
+  // Keyed on the reachable drill set: rendering runs every tick, and rebuilding options under an
+  // open native dropdown glitches it, so a select must only be touched when its content changes.
+  const signature = `${state.depthTier}|${assignableDrills(state).map((drill) => drill.id).join(',')}`;
+  if (select.dataset.drillSignature === signature) {
+    return;
+  }
+  select.dataset.drillSignature = signature;
+
   const current = select.value;
   // Options after the fixed Idle + category block.
   for (const option of [...select.options].slice(1 + Object.values(RESOURCE_CATEGORIES).length)) {
@@ -252,7 +260,10 @@ export function createWorkerPanel({ root, dispatch } = {}) {
 
     const select = row.element.querySelector('[data-field="worker-assignment"]');
     refreshDrillOptions(select, state);
-    select.value = encodeAssignment(worker.assignment);
+    const encoded = encodeAssignment(worker.assignment);
+    if (select.value !== encoded) {
+      select.value = encoded;
+    }
 
     const cost = trainCost(worker);
     const atCap = worker.level >= config.workers.maxLevel;

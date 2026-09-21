@@ -78,3 +78,17 @@
   has a browser smoke check asserting it is mounted (`every composition panel is mounted`). The
   settings panel shipped unmounted for three phases because jsdom tests used `panel.element`
   directly; a factory that returns an element without appending it must say so explicitly.
+- Rendering runs every tick (200ms), so panels must never mutate a control that the player is
+  interacting with. Selects are the sharp edge: rebuilding `<option>` nodes under an open native
+  dropdown glitches it (a player sees a "buggy dropdown"), and re-writing `select.value` can
+  reset a popover mid-choice. Guard every select: rebuild options only when the option set's
+  signature changes, and assign `.value` only when it differs. Node identity is the test —
+  `toEqual` passes on structurally identical rebuilt nodes and proves nothing.
+- Nothing may overlay the scroll content. A sticky HUD was tried for mobile and reverted: at
+  phone widths the HUD is several cards tall, controls scrolled beneath it ate the tap (the
+  browser smoke timed out clicking a control under it). A compact sticky strip needs
+  scroll-padding on the scroller and a measured height before it can return.
+- Mobile ergonomics live in the stylesheet contract `tests/ui/mobileUi.test.js`: double-tap zoom
+  opt-out and `user-select` for buttons/selects (inputs stay text-selectable), transparent tap
+  highlight, `overscroll-behavior: contain` on the panel column, a 100vh fallback beside 100dvh,
+  top safe-area padding, and 16px form controls so iOS does not zoom into them.
