@@ -26,13 +26,19 @@
 | P6 | Settings, notation, safe destructive actions | Complete |
 | P7 | Accessibility hardening | Complete |
 | P8 | PWA and installability | Complete |
-| P9 | Game-feel and UX polish | In progress (core landed; UI pending) |
-| P10 | First-run tutorial | Pending |
-| P11 | Audio layer | Pending |
+| P9 | Game-feel and UX polish | Complete |
+| P10 | First-run tutorial | Complete |
+| P11 | Audio layer | Complete |
 | P12 | Economy simulation and rebalance | Complete |
 | P13 | Big-number implementation swap | Complete |
-| P14 | Cross-browser, soak, performance QA | Pending |
-| P15 | Resilience and diagnostics | Pending |
+| P14 | Cross-browser, soak, performance QA | Complete |
+| P15 | Resilience and diagnostics | Complete |
+
+All sixteen phases of the v2 plan are complete, plus the non-TDD art-pack track. The v2 plan's
+own ledger and evidence blocks carry per-phase RED/GREEN records. Current verification baseline:
+616 Vitest tests (49 files), production build clean, and the full gate (`npm run gate`) green:
+smoke 71/71, events 7/7, responsive 49/49, shaft render 5/5, PWA 9/9, soak 4/4, perf 5/5,
+boot-failure fallback 4/4, plus 14/14 functional checks on Firefox and WebKit.
 
 ### P1 — durable saves
 

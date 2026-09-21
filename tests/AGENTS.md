@@ -56,3 +56,15 @@
 
 ## Child DOX Index
 - No narrower durable test boundary exists yet.
+
+## Local Contracts (v2 additions)
+- `tests/core/tutorial.test.js` covers the first-run state machine (step order, refusal paths,
+  completion persistence). `tests/ui/tutorialPanel.test.js` covers the coach line.
+- `tests/platform/audio.test.js` covers the audio adapter contract (mute, volume clamp, no-op
+  default, structured failure) with injected backends; no test ever plays real audio.
+- `tests/data/sounds.test.js` is a file contract in the artPack style: it reads the committed
+  WAVs and validates headers and size bounds against `src/data/sounds.js`.
+- `tests/ui/bootFallback.test.js` and `tests/platform/diagnostics.test.js` cover the resilience
+  layer, including the save-content scrubbing guarantee.
+- The soak and perf gates live in `scripts/` (CDP), not Vitest; their contracts are in
+  `scripts/AGENTS.md`.

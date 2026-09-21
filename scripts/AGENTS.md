@@ -143,3 +143,29 @@
 
 ## Child DOX Index
 - No narrower durable boundary exists yet.
+
+## Local Contracts (v2 additions)
+- `browser-soak.mjs` owns the long-session leak gate: it runs the production build with a rich
+  save for `SOAK_SECONDS` (default 30), samples `JSHeapUsedSize` through CDP
+  `Performance.enable` (not `performance.memory`, which is unreliable in headless), and compares
+  the last quarter of samples against the first. `SOAK_INJECT_LEAK=1` grows an array every tick in
+  the page so the check can be proven able to fail; a leaky build reads x2.39 over 12s against the
+  healthy x0.84, and the injected growth runs only in the page of a verification run.
+- `browser-perf.mjs` owns the performance gate: it boots a maximum-size save (five tiers, a full
+  roster, all drills) and asserts frame responsiveness (median rAF delta) and the per-tap
+  synchronous budget of the mine path stay inside generous headless budgets.
+- `browser-cross.mjs` runs a compact functional subset of the smoke suite on Firefox and WebKit
+  (`launch(viewport, project)`), so an engine-specific failure is not invisible to a
+  Chromium-only gate. Full coverage remains in the Chromium suites.
+- `browser-boot-failure.mjs` builds a verification-only bundle with
+  `import.meta.env.VITE_FORCE_BOOT_FAILURE` defined to '1' and asserts a boot failure shows the
+  readable fallback (problem + version + reload control) instead of a blank page. The production
+  build must never contain the constant; the dead-code claim is checked by grepping `dist/`.
+- The gate order ends with soak, perf, and the boot-failure fallback, because they verify the
+  composition the earlier suites built.
+
+## Verification (v2)
+- `npm run gate` is still the aggregate gate; it now ends with the soak, perf, and boot-failure
+  steps and prints one summary table.
+- `npm run test:browser:cross` is not part of the default gate (it adds two browser downloads and
+  ~90s); run it before release with `npm run test:browser:all`.

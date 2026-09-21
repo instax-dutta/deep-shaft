@@ -34,3 +34,13 @@
 
 ## Child DOX Index
 - No narrower durable platform boundary exists yet.
+
+## Child DOX Index (v2 additions)
+- `audio.js` owns the optional sound adapter: an injected backend (no-op default; Web Audio
+  backend with lazy context and cached buffers), mute/volume from settings, and failures that
+  never throw into the game loop. The pack binding lives in `src/data/sounds.js`; the adapter
+  never imports it.
+- `diagnostics.js` owns the bounded local problem log and version string surfaced in
+  Settings > Diagnostics. It is local-only: nothing is ever sent anywhere, and recorded messages
+  are scrubbed of save-content tokens so a diagnostics dump cannot leak the save.
+- `serviceWorker.js` owns guarded registration; see `tests/platform/serviceWorker.test.js`.

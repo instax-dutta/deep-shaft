@@ -58,3 +58,19 @@
 
 ## Child DOX Index
 - No narrower durable UI boundary exists yet.
+
+## Local Contracts (v2 additions)
+- `bootFallback.js` owns the last-resort screen: a readable "could not start" message with the
+  app version and a reload control, mounted into `document.body` when the app root is missing.
+  `main.js`'s `guardedBoot` uses it for any failure before the game is interactive; after boot,
+  errors surface as an in-game notice plus the Settings > Diagnostics log instead.
+- `tutorialPanel.js` renders the first-run coach line from `core/tutorial.js` and hides itself
+  entirely for a completed tutorial; skipping is a player action, never a timeout.
+- `confirmModal.js` is the shared destructive-confirmation (reset, worker dismissal): opening
+  dispatches nothing, the safe option takes focus, Escape closes, and the message names the loss.
+- A hidden live region must use `position: fixed`, never `absolute`, inside the scrolling panel
+  column: an absolutely positioned nowrap region contributed its text width to the column's
+  scrollable overflow and pushed 320px phones sideways (caught by the responsive sweep).
+- An `<input>` inside a flex row needs `flex-basis: 0; width: 0; min-width: 0`, not only
+  `min-width: 0`: the intrinsic size attribute otherwise inflates the row's min-content, which
+  sizes the whole panel column to it (also caught by the responsive sweep).

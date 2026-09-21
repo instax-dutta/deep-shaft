@@ -91,7 +91,8 @@ function earnedWhileAway(state) {
 }
 
 describe('simulateRun', () => {
-  it('is deterministic for a fixed seed', () => {
+  // These tests simulate whole runs; under full-suite parallelism a 5s default is too tight.
+  it('is deterministic for a fixed seed', { timeout: 30_000 }, () => {
     const first = simulateRun({ strategy: STRATEGIES.GREEDY, maxSeconds: 1_800, stepSeconds: 5, seed: 7 });
     const second = simulateRun({ strategy: STRATEGIES.GREEDY, maxSeconds: 1_800, stepSeconds: 5, seed: 7 });
 
@@ -99,7 +100,7 @@ describe('simulateRun', () => {
     expect(second.series).toEqual(first.series);
   });
 
-  it('keeps the reference strategies independent of the random source', () => {
+  it('keeps the reference strategies independent of the random source', { timeout: 30_000 }, () => {
     // Both reference lines model expectation, not luck: the seed must not move a milestone. That is
     // what makes these pacing numbers a property of the economy rather than of one lucky run.
     const seeded = simulateRun({ strategy: STRATEGIES.GREEDY, maxSeconds: 3_600, stepSeconds: 10, seed: 1 });
@@ -108,7 +109,7 @@ describe('simulateRun', () => {
     expect(other.milestones).toEqual(seeded.milestones);
   });
 
-  it('reports every milestone tier the approved windows describe', () => {
+  it('reports every milestone tier the approved windows describe', { timeout: 30_000 }, () => {
     const { milestones } = greedyRun();
 
     for (let tier = 2; tier <= MAX_DEPTH_TIER; tier += 1) {
@@ -117,22 +118,22 @@ describe('simulateRun', () => {
     expect(milestones.prestige).toBeTypeOf('number');
   });
 
-  it('the greedy strategy reaches Depth 2 within the approved minimum and maximum time', () => {
+  it('the greedy strategy reaches Depth 2 within the approved minimum and maximum time', { timeout: 30_000 }, () => {
     expectWithinWindow('Depth 2 (greedy)', greedyRun().milestones.tier2, APPROVED.depth[2]);
   });
 
-  it('the greedy strategy reaches Depth 3 within the approved window', () => {
+  it('the greedy strategy reaches Depth 3 within the approved window', { timeout: 30_000 }, () => {
     expectWithinWindow('Depth 3 (greedy)', greedyRun().milestones.tier3, APPROVED.depth[3]);
   });
 
-  it('the greedy strategy reaches the deepest tiers within their approved windows', () => {
+  it('the greedy strategy reaches the deepest tiers within their approved windows', { timeout: 30_000 }, () => {
     const { milestones } = greedyRun();
 
     expectWithinWindow('Depth 4 (greedy)', milestones.tier4, APPROVED.depth[4]);
     expectWithinWindow('Depth 5 (greedy)', milestones.tier5, APPROVED.depth[5]);
   });
 
-  it('the balanced strategy also stays inside the approved windows, but never ahead of greedy', () => {
+  it('the balanced strategy also stays inside the approved windows, but never ahead of greedy', { timeout: 30_000 }, () => {
     const greedy = greedyRun().milestones;
     const balanced = balancedRun().milestones;
 
@@ -146,7 +147,7 @@ describe('simulateRun', () => {
     }
   });
 
-  it('never produces negative currency, resources, or drill counts', () => {
+  it('never produces negative currency, resources, or drill counts', { timeout: 30_000 }, () => {
     const result = run({
       strategy: STRATEGIES.GREEDY,
       maxSeconds: HORIZON_SECONDS,
@@ -170,7 +171,7 @@ describe('simulateRun', () => {
     }
   });
 
-  it('keeps currency monotonic across the sell-only region before the first drill', () => {
+  it('keeps currency monotonic across the sell-only region before the first drill', { timeout: 30_000 }, () => {
     // Before any drill is owned the mine only taps and sells, so banked currency can never fall.
     // Sampled per second so the opening is actually observed rather than skipped over.
     const opening = run({
@@ -186,7 +187,7 @@ describe('simulateRun', () => {
     }
   });
 
-  it('never lets lifetime earnings fall, in any region', () => {
+  it('never lets lifetime earnings fall, in any region', { timeout: 30_000 }, () => {
     const { series } = greedyRun();
 
     for (let index = 1; index < series.length; index += 1) {
@@ -194,14 +195,14 @@ describe('simulateRun', () => {
     }
   });
 
-  it('crosses the first prestige threshold within the approved window', () => {
+  it('crosses the first prestige threshold within the approved window', { timeout: 30_000 }, () => {
     const { milestones } = greedyRun();
 
     expect(milestones.prestige).toBeGreaterThan(0);
     expect(milestones.prestige).toBeLessThanOrEqual(APPROVED.firstPrestigeMaxSeconds);
   });
 
-  it('a later cycle with a permanent multiplier is faster than the first', () => {
+  it('a later cycle with a permanent multiplier is faster than the first', { timeout: 30_000 }, () => {
     const fresh = simulateRun({ strategy: STRATEGIES.GREEDY, maxSeconds: 4 * 3_600, stepSeconds: 5 });
     const firstCycleSeconds = fresh.milestones.tier3;
 
@@ -215,7 +216,7 @@ describe('simulateRun', () => {
     expect(secondCycle.milestones.tier3).toBeLessThan(firstCycleSeconds);
   });
 
-  it('keeps offline catch-up at the approved 24h cap a minor share of a day of active play', () => {
+  it('keeps offline catch-up at the approved 24h cap a minor share of a day of active play', { timeout: 30_000 }, () => {
     // The cap is itself one of the approved P12 numbers, so pin it: raising it is an edit to the
     // plan rather than a quiet tuning tweak, and it is what bounds the absence below.
     expect(config.offline.capSeconds).toBe(DAY_SECONDS);
@@ -238,7 +239,7 @@ describe('simulateRun', () => {
     }
   });
 
-  it('a long-horizon simulation over many prestige cycles never produces Infinity', () => {
+  it('a long-horizon simulation over many prestige cycles never produces Infinity', { timeout: 30_000 }, () => {
     const result = simulateRun({
       strategy: STRATEGIES.GREEDY,
       maxSeconds: 30 * 86_400,

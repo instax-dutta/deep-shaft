@@ -985,14 +985,89 @@ showed the rail texture scaled to fill the shaft height, turning its 32-pixel la
 | P6 | Settings + notation + safe reset | complete | +20 | Evidence block P6 |
 | P7 | Accessibility | complete | +12 | Evidence block P7 |
 | P8 | PWA | complete | +12 | Evidence block P8 |
-| P9 | Game-feel + UX polish | in progress | +20 (core) | Core evidence in the status doc; UI pending |
-| P10 | Onboarding | pending | — | — |
-| P11 | Audio | pending | — | — |
+| P9 | Game-feel + UX polish | complete | +10 UI, +3 smoke | Evidence block P9 |
+| P10 | Onboarding | complete | +14 | Evidence block P10 |
+| P11 | Audio | complete | +14 | Evidence block P11 |
 | P12 | Economy rebalance | complete | +14 | Evidence block P12 |
 | P13 | Big-number swap | complete | +6 | Evidence block P13 |
-| P14 | Cross-browser/soak/perf | pending | — | — |
-| P15 | Resilience/diagnostics | pending | — | — |
+| P14 | Cross-browser/soak/perf | complete | +14 soak/perf/cross | Evidence block P14 |
+| P15 | Resilience/diagnostics | complete | +11 | Evidence block P15 |
 | — | Art pack (non-TDD track) | complete | +10 (pack contract) | Acceptance note below |
+
+---
+
+## Evidence blocks (P9-P15)
+
+### Phase P9 — UI wiring
+RED:    npm test -- --run tests/ui/workerPanel.test.js
+        "6 failed | 17 passed" — rename/dismiss controls and the depth-gated option list did not
+        exist; `querySelector('[data-action=dismiss-worker]')` returned null.
+        npm test -- --run tests/ui/hud.test.js -> "2 failed": per-category sell controls missing.
+GREEN:  23/23 workerPanel, 18/18 hud. Full suite 572/572; build clean; smoke 67/67.
+MUTATION: dismiss name came from the DOM li instead of the row handle -> caught by the
+        'asks for confirmation' test reading the worker's real name. Fixed by returning the
+        handle from createRow.
+DEFECTS FOUND: two v1 tests encoded the old every-drill-listed contract; updated to the
+        depth-gated contract after the new tests failed for the intended reason.
+FILES:  src/ui/workerPanel.js, src/ui/hud.js, src/main.js (sellCategory/rename/dismiss wiring,
+        buyDrill confirmation), src/ui/styles.css, tests/ui/*, scripts/browser-smoke.mjs (+6 checks).
+
+### Phase P10 — tutorial
+RED:    tests/core/tutorial.test.js -> "Cannot find module '../../src/core/tutorial.js'".
+        tests/ui/tutorialPanel.test.js -> same for tutorialPanel.js.
+GREEN:  9/9 core, 5/5 UI. Full suite 586/586; build clean; smoke 71/71.
+MUTATION: removed the wrong_step guard -> 2 tests failed (out-of-order, repeated). Reverted.
+NOTES:  the tutorial is a career fact (never reset by prestige), persisted in schema v2 state.
+FILES:  src/core/tutorial.js, src/core/state.js (tutorial field + sanitizer + migration),
+        src/ui/tutorialPanel.js, src/main.js (tutor() after successful commands, dismiss event),
+        tests/core/tutorial.test.js (9), tests/ui/tutorialPanel.test.js (5), smoke (+4 checks).
+
+### Phase P11 — audio
+RED:    tests/platform/audio.test.js -> "Cannot find module '../../src/platform/audio.js'".
+        tests/core/settings.test.js -> 4 volume-setting failures.
+        tests/ui/settingsPanel.test.js -> 3 volume-slider failures.
+        tests/data/sounds.test.js passed immediately: it is a file-contract invariant
+        (records the pack's shape, in the responsiveStyles style), not a new behavior.
+GREEN:  7/7 adapter, 12/12 settings, 15/15 settingsPanel, 4/4 pack contract. Full suite 602/602.
+MUTATION: removed the adapter mute guard -> the mute test failed. Reverted.
+FILES:  src/platform/audio.js (adapter + Web Audio backend), src/data/sounds.js,
+        scripts/generate-audio.mjs (public/audio/*.wav committed), src/main.js (playSound behind
+        settings.sound + volume), src/ui/settingsPanel.js (volume slider), public/sw.js
+        (wav added to runtime-cacheable types), tests as above.
+
+### Phase P14 — cross-browser, soak, perf
+RED:    /tmp/harness matrix asserted the engine name -> "expected the firefox engine, got
+        chromium" (the harness ignored the project parameter).
+        Soak leak proof: injected leak first grew only x1.31 (too small) and x1.00 via
+        performance.memory (unreliable in headless); after switching to CDP Performance.getMetrics
+        and a larger injection, the leaky build FAILed at x2.39 > x1.5 while the healthy build
+        passed at x0.84.
+GREEN:  soak 4/4, perf 5/5, cross 14/14 (firefox + webkit), responsive 49/49, smoke 71/71.
+DEFECTS FOUND (two real ones, both caught by measurement):
+        1. The a11y live region (nowrap, absolutely positioned inside the scrolling panel column)
+           contributed its text width to the column's scrollable overflow: 320/820/844-landscape
+           failed "does not scroll sideways". Fix: position: fixed.
+        2. The new rename input's intrinsic `size` inflated `.workers` min-content to 340px,
+           sizing the whole panel column to it. Fix: flex-basis 0 + width 0 on the input.
+        Both were found by the responsive sweep that already existed; the sweep caught them the
+        same session they were introduced.
+FILES:  scripts/browser-harness.mjs (project parameterization + BROWSER_PROJECTS),
+        scripts/browser-soak.mjs, scripts/browser-perf.mjs, scripts/browser-cross.mjs,
+        package.json scripts, src/ui/styles.css (the two fixes above).
+
+### Phase P15 — resilience, diagnostics
+RED:    tests/ui/bootFallback.test.js and tests/platform/diagnostics.test.js ->
+        "Cannot find module ...". tests/ui/settingsPanel.test.js -> 3 diagnostics-view failures.
+GREEN:  4/4 fallback, 4/4 diagnostics, 15/15 settings; boot-failure browser check 4/4; full
+        suite 616/616; production bundle greps clean of VITE_FORCE_BOOT_FAILURE.
+MUTATION: removed the diagnostics bound -> the bounded-log test failed. Reverted.
+DEFECTS FOUND: the first guarded-boot wiring threw `notifyWhileRunning is not defined` inside
+        boot() (module scope vs guard scope), which the new fallback correctly surfaced with the
+        version string - the fallback caught its own author's bug in the first browser run.
+FILES:  src/ui/bootFallback.js, src/platform/diagnostics.js, src/main.js (guardedBoot, global
+        error handlers, version define, diagnostics into settings), vite.config.js
+        (__APP_VERSION__ define), scripts/browser-boot-failure.mjs, scripts/gate.mjs (+3 steps),
+        tests as above.
 
 ---
 
