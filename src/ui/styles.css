@@ -811,7 +811,11 @@ body {
 }
 
 .worker__rename {
-  flex: 1;
+  flex: 1 1 0%;
+  /* `width: 0` as well as min-width: 0: an <input>'s intrinsic size attribute otherwise keeps
+     contributing to the flex row's min-content, which sized the whole panel column to it and
+     pushed a 320px phone sideways. */
+  width: 0;
   min-width: 0;
   min-height: 44px;
   padding: 0 10px;
@@ -843,7 +847,10 @@ body {
 }
 
 .live-region {
-  position: absolute;
+  /* `fixed`, not `absolute`: a hidden region inside the scrolling panel column still contributed
+     its nowrap text width to that column's scrollable overflow and pushed a 320px phone sideways.
+     Fixed positioning removes it from the scroll context entirely. */
+  position: fixed;
   width: 1px;
   height: 1px;
   margin: -1px;

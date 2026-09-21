@@ -16,7 +16,11 @@
     "test:browser:events": "node scripts/browser-events.mjs",
     "test:browser:responsive": "node scripts/browser-responsive.mjs",
     "test:browser:render": "node scripts/browser-shaft-render.mjs",
-    "test:browser:pwa": "node scripts/browser-pwa.mjs"
+    "test:browser:pwa": "node scripts/browser-pwa.mjs",
+    "test:browser:soak": "node scripts/browser-soak.mjs",
+    "test:browser:perf": "node scripts/browser-perf.mjs",
+    "test:browser:all": "npm run test:browser && npm run test:browser:cross",
+    "test:browser:cross": "node scripts/browser-cross.mjs"
   },
   "dependencies": {
     "break_eternity.js": "^2.1.3",

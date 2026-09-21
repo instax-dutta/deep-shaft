@@ -9,7 +9,10 @@
 process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || '0';
 
 const { build, preview } = await import('vite');
-const { chromium } = await import('playwright');
+const { chromium, firefox, webkit } = await import('playwright');
+
+/** The engines the cross-browser gate runs on. Chromium is the default everywhere else. */
+export const BROWSER_PROJECTS = Object.freeze({ chromium, firefox, webkit });
 
 export const SAVE_KEY = 'deep-shaft.save';
 
@@ -60,15 +63,18 @@ export async function serve({ port, define, outDir } = {}) {
 }
 
 /**
- * Launches headless Chromium at a phone viewport by default.
+ * Launches a headless browser at a phone viewport by default.
  *
- * Each scenario must take its own context via `newContext()`. Pages in one context share
- * `localStorage`, and every page runs its own autosave loop (`config.persistence.autosaveIntervalMs`),
- * so a scenario left open will periodically overwrite another scenario's save. Separate contexts
- * give each scenario its own storage partition and remove that whole class of interference.
+ * `project` names the engine ('chromium' | 'firefox' | 'webkit') so the cross-browser gate can
+ * run the same scenarios on all three. Each scenario must take its own context via `newContext()`:
+ * pages in one context share `localStorage`, and every page runs its own autosave loop
+ * (`config.persistence.autosaveIntervalMs`), so a scenario left open will periodically overwrite
+ * another scenario's save. Separate contexts give each scenario its own storage partition and
+ * remove that whole class of interference.
  */
-export async function launch(viewport = { width: 390, height: 844 }) {
-  const browser = await chromium.launch();
+export async function launch(viewport = { width: 390, height: 844 }, project = 'chromium') {
+  const browserType = BROWSER_PROJECTS[project] ?? chromium;
+  const browser = await browserType.launch();
   const errors = [];
 
   function watch(context) {
