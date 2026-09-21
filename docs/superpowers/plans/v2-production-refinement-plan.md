@@ -1069,6 +1069,37 @@ FILES:  src/ui/bootFallback.js, src/platform/diagnostics.js, src/main.js (guarde
         (__APP_VERSION__ define), scripts/browser-boot-failure.mjs, scripts/gate.mjs (+3 steps),
         tests as above.
 
+### Human play-test (post-P15) — findings and fixes
+
+A fresh-save, human-paced session at a 390x844 phone viewport (25 min of real waiting, no
+seeding), then a seeded mid-game pass over the later surfaces, observed stage by stage with
+screenshots (`screenshots/playtest-*.png`). Findings, in the order found:
+
+1. **The settings panel had never mounted.** `createSettingsPanel` was written without a `root`
+   parameter or `root?.append(element)` from its first commit, so export, import, reset, notation,
+   sound, and diagnostics were unreachable in the real browser. Every jsdom test mounted the panel
+   by using `panel.element` directly, and the smoke suite had no check - the defect was invisible
+   to the whole suite for five phases. It surfaced only because a human-shaped pass tried to open
+   the diagnostics view and the locator found nothing.
+   Fix: TDD - a connectivity test ("appends itself into the root it was given") failed, then the
+   append was restored; plus a browser check that every composition panel is mounted and the
+   settings controls exist. Guarded so the whole class of silently-unmounted panels is covered.
+2. **Duplicate assignment options.** A worker already on a reached drill produced the drill option
+   twice in the select (`drill-1` appeared again via the held-assignment branch). Harmless but
+   sloppy; fixed with a dedupe keyed by drill id, test-first.
+3. **No cost preview for x10 / Max.** The shop showed only the next unit's price, so a bulk click
+   spent an unknown amount. The row now states "x10 for 350.24" and "Max buys 12 for 4.56K"
+   (or "Max: none affordable yet"), test-first, and was verified live.
+4. **Gems and rare income was invisible.** The HUD showed only the ore rate, so a player could not
+   tell whether a worker on gems did anything without mental math. Both cells now show their own
+   per-second rates, test-first, mutation-checked (a wrong rate fails the ore>gems ordering test).
+
+Observations that checked out and needed no change: cave-in dimming with a 0/s rate and a banner
+(dark shaft in playtest-2 is a live cave-in), prestige and reset copy, reset-cancel safety,
+export round-trip, notation switching, auto-sell after its upgrade, achievement progress rows,
+and the tutorial flow including skip-persistence. The late-game surfaces (upgrade tree, automation
+locks, achievements) all read correctly at a phone viewport.
+
 ---
 
 ## Evidence block template (append one per task/phase)

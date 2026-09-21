@@ -74,3 +74,7 @@
 - An `<input>` inside a flex row needs `flex-basis: 0; width: 0; min-width: 0`, not only
   `min-width: 0`: the intrinsic size attribute otherwise inflates the row's min-content, which
   sizes the whole panel column to it (also caught by the responsive sweep).
+- Every panel factory must append itself into the `root` it is given, and every composition panel
+  has a browser smoke check asserting it is mounted (`every composition panel is mounted`). The
+  settings panel shipped unmounted for three phases because jsdom tests used `panel.element`
+  directly; a factory that returns an element without appending it must say so explicitly.
