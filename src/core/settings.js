@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   reducedMotion: false,
   sound: true,
   haptics: true,
+  volume: 0.6,
 });
 
 const NOTATIONS = Object.freeze(['suffix', 'scientific', 'engineering']);
@@ -22,6 +23,7 @@ const VALIDATORS = Object.freeze({
   reducedMotion: (value) => typeof value === 'boolean',
   sound: (value) => typeof value === 'boolean',
   haptics: (value) => typeof value === 'boolean',
+  volume: (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1,
 });
 
 /** Rebuilds a complete, valid settings block from untrusted input. */

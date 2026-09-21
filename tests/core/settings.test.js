@@ -61,3 +61,33 @@ describe('setSetting', () => {
     expect(state).toEqual(before);
   });
 });
+
+describe('volume setting', () => {
+  it('volume defaults to a mid level and is a real setting', () => {
+    expect(DEFAULT_SETTINGS.volume).toBe(0.6);
+    const normalized = normalizeSettings(null);
+    expect(normalized.volume).toBe(0.6);
+  });
+
+  it('volume accepts numbers inside 0..1', () => {
+    const state = createInitialState();
+    expect(setSetting(state, 'volume', 0.25)).toMatchObject({ ok: true, value: 0.25 });
+    expect(state.settings.volume).toBe(0.25);
+  });
+
+  it('volume refuses numbers outside 0..1 with state unchanged', () => {
+    const state = createInitialState();
+    expect(setSetting(state, 'volume', 2)).toEqual({ ok: false, reason: 'invalid_value' });
+    expect(state.settings.volume).toBe(DEFAULT_SETTINGS.volume);
+  });
+
+  it('volume rejects non-numeric junk', () => {
+    const state = createInitialState();
+    expect(setSetting(state, 'volume', 'loud')).toEqual({ ok: false, reason: 'invalid_value' });
+  });
+
+  it('normalizing a save repairs a broken volume with the default', () => {
+    expect(normalizeSettings({ volume: 'loud' }).volume).toBe(DEFAULT_SETTINGS.volume);
+    expect(normalizeSettings({ volume: 1.4 }).volume).toBe(DEFAULT_SETTINGS.volume);
+  });
+});

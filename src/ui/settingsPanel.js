@@ -75,6 +75,20 @@ export function createSettingsPanel({ dispatch } = {}) {
   const soundToggle = createToggleRow('sound', 'Sound', dispatch);
   const hapticsToggle = createToggleRow('haptics', 'Haptics', dispatch);
 
+  const volumeInput = createElement('input', {
+    attrs: { type: 'range', min: '0', max: '1', step: '0.05', id: 'setting-volume', 'data-setting': 'volume' },
+  });
+  volumeInput.addEventListener('input', () => {
+    dispatch?.({ type: 'setSetting', key: 'volume', value: Number(volumeInput.value) });
+  });
+  const volumeRow = createElement('div', {
+    className: 'setting__row',
+    children: [
+      createElement('label', { text: 'Volume', attrs: { for: 'setting-volume' } }),
+      volumeInput,
+    ],
+  });
+
   const exportText = createElement('textarea', {
     className: 'settings__save-text',
     attrs: { 'data-field': 'export-text', readonly: 'true', 'aria-label': 'Exported save' },
@@ -129,7 +143,7 @@ export function createSettingsPanel({ dispatch } = {}) {
       }),
       createElement('div', {
         className: 'setting__list',
-        children: [motionToggle.row, soundToggle.row, hapticsToggle.row],
+        children: [motionToggle.row, soundToggle.row, volumeRow, hapticsToggle.row],
       }),
       createElement('h3', { className: 'panel__subtitle', text: 'Save data' }),
       exportButton,
@@ -168,6 +182,7 @@ export function createSettingsPanel({ dispatch } = {}) {
     motionToggle.input.checked = state.settings.reducedMotion === true;
     soundToggle.input.checked = state.settings.sound === true;
     hapticsToggle.input.checked = state.settings.haptics === true;
+    volumeInput.value = String(state.settings.volume ?? 0.6);
   }
 
   return { element, render, confirmModal };

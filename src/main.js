@@ -27,7 +27,9 @@ import { getDepthTier } from './data/depthTiers.js';
 import { getDrill } from './data/drills.js';
 import { getPrestigeUpgrade } from './data/prestigeUpgrades.js';
 import { getResource } from './data/resources.js';
+import { SOUND_IDS, getSound } from './data/sounds.js';
 import { createClock } from './platform/clock.js';
+import { createAudio, createWebAudioBackend } from './platform/audio.js';
 import { createLifecycle } from './platform/lifecycle.js';
 import { createLocalStorageBackend, createStorage } from './platform/storage.js';
 import { registerServiceWorker } from './platform/serviceWorker.js';
@@ -168,6 +170,21 @@ function boot() {
   const liveRegion = createLiveRegion({ root: panelHost });
   const announcer = createAnnouncer({ region: liveRegion });
 
+  // Sound is optional and player-controlled: the setting mutes it, the volume sets its level,
+  // and every failure inside the adapter is swallowed there rather than reaching this loop.
+  const audio = createAudio({
+    backend: createWebAudioBackend({ resolve: (id) => getSound(id) }),
+  });
+
+  function playSound(id) {
+    if (!state.settings?.sound) {
+      return;
+    }
+    // Settings are normalized on load, so volume is always a complete 0..1 number.
+    audio.setVolume(state.settings.volume);
+    audio.play(id);
+  }
+
   /** Reflects settings that need a class on the app root (reduced motion). */
   function applySettings() {
     const classes = new Set(settingsRootClasses(state.settings));
@@ -211,6 +228,9 @@ function boot() {
       case 'mine': {
         // The result is returned so the shaft can show what a tap produced.
         const result = mineManually(state);
+        if (result.ok) {
+          playSound(SOUND_IDS.MINE);
+        }
         tutor(TUTORIAL_EVENTS.MINED);
         render();
         return result;
@@ -222,6 +242,7 @@ function boot() {
           refuse(result.reason);
         } else if (result.value > 0) {
           notify(`Sold for ${formatNumber(result.value)}.`, { tone: 'good' });
+          playSound(SOUND_IDS.SELL);
         } else {
           notify('Nothing to sell yet.');
         }
@@ -238,6 +259,7 @@ function boot() {
           notify(`Sold ${formatNumber(result.amount)} ${name} for ${formatNumber(result.value)}.`, {
             tone: 'good',
           });
+          playSound(SOUND_IDS.SELL);
         } else {
           notify('Nothing to sell yet.');
         }
@@ -256,6 +278,7 @@ function boot() {
             `Bought ${result.quantity} ${getDrill(command.drillId)?.name ?? 'drill'} for ${formatNumber(result.cost)}.`,
             { tone: 'good' },
           );
+          playSound(SOUND_IDS.BUY);
           tutor(TUTORIAL_EVENTS.BOUGHT_DRILL);
         }
         break;
@@ -320,6 +343,7 @@ function boot() {
               `and ${result.points} prestige point${result.points === 1 ? '' : 's'} were banked.`,
             { tone: 'good' },
           );
+          playSound(SOUND_IDS.PRESTIGE);
         }
         break;
       }
@@ -345,6 +369,16 @@ function boot() {
           refuse(result.reason);
         } else {
           applySettings();
+          if (command.key === 'sound') {
+            if (command.value) {
+              audio.unmute();
+            } else {
+              audio.mute();
+            }
+          }
+          if (command.key === 'volume') {
+            audio.setVolume(command.value);
+          }
         }
         break;
       }
@@ -398,6 +432,7 @@ function boot() {
           notify(`Dug deeper — now working ${tier ? tier.name : `tier ${result.tier}`}.`, {
             tone: 'good',
           });
+          playSound(SOUND_IDS.BUY);
           tutor(TUTORIAL_EVENTS.DUG);
         }
         break;
@@ -463,6 +498,9 @@ function boot() {
     const events = advanceEvents(state, elapsed, eventAdvanceOptions);
     if (events.triggered) {
       toast.show(events.triggered.announcement, { tone: events.triggered.tone });
+      playSound(
+        events.triggered.tone === 'good' ? SOUND_IDS.EVENT_GOOD : SOUND_IDS.EVENT_BAD,
+      );
     }
     for (const ended of events.expired) {
       toast.show(`${ended.name} is over.`);

@@ -22,8 +22,9 @@ const CACHE_NAME = 'deep-shaft-v2';
  */
 const SHELL_DOCUMENTS = ['./', './index.html', './manifest.webmanifest', './art/pack.json'];
 
-/** File types worth keeping: the shell and its assets, not API responses. */
-const CACHEABLE = /\.(?:css|js|mjs|png|svg|jpg|jpeg|webp|ico|webmanifest|woff2?)(?:\?|$)/;
+/** File types worth keeping: the shell and its assets, not API responses. Sounds are fetched at
+ * play time and cached on first use, so they replay offline too. */
+const CACHEABLE = /\.(?:css|js|mjs|png|svg|jpg|jpeg|webp|ico|webmanifest|woff2?|wav)(?:\?|$)/;
 
 /**
  * Cache lookup options for the app shell.

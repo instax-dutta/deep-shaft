@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createInitialState } from '../../src/core/state.js';
 import { createSettingsPanel, settingsRootClasses } from '../../src/ui/settingsPanel.js';
@@ -121,5 +121,44 @@ describe('save transfer controls', () => {
 
     expect(dispatch).not.toHaveBeenCalled();
     expect(field(panel, 'import-error').textContent.length).toBeGreaterThan(0);
+  });
+});
+
+describe('settingsPanel volume', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function mountWith(state) {
+    document.body.innerHTML = '';
+    const dispatch = vi.fn();
+    const panel = createSettingsPanel({ root: document.body, dispatch });
+    panel.render(state);
+    const slider = panel.element.querySelector('[data-setting="volume"]');
+    return { panel, dispatch, slider };
+  }
+
+  it('offers a volume slider beside the sound toggle', () => {
+    const { slider } = mountWith(createInitialState());
+    expect(slider).not.toBeNull();
+    expect(slider.type).toBe('range');
+    expect(Number(slider.min)).toBe(0);
+    expect(Number(slider.max)).toBe(1);
+  });
+
+  it('shows the current volume', () => {
+    const state = createInitialState();
+    state.settings.volume = 0.25;
+    const { slider } = mountWith(state);
+    expect(Number(slider.value)).toBeCloseTo(0.25);
+  });
+
+  it('dispatches setSetting when the volume changes', () => {
+    const { dispatch, slider } = mountWith(createInitialState());
+
+    slider.value = '0.25';
+    slider.dispatchEvent(new Event('input'));
+
+    expect(dispatch).toHaveBeenCalledWith({ type: 'setSetting', key: 'volume', value: 0.25 });
   });
 });
