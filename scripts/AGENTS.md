@@ -23,6 +23,16 @@
   committed. It reads its key list from `src/data/artPack.js` and its colours from
   `src/data/artPalette.js`, so it cannot render art the pack does not declare, and it throws on a
   key with no recipe rather than skipping it.
+- `png.mjs` owns PNG decoding and the pixel measurements both review tools need: median colour,
+  luminance, colour distance, row-by-row strip luminance, and "how many times does this series rise
+  above its own mean" (the repeat counter). Two scripts measure the same pixels, so they share one
+  implementation rather than two that can disagree.
+- `browser-shaft-render.mjs` is the automated form of the screenshot review: it seeds the deepest
+  mine, screenshots the shaft canvas, decodes it, and asserts the properties a broken render loses —
+  enough colour to not be blank, a distinct rock colour per stratum, rock darkening with depth, and
+  a lining that repeats down both edges instead of stretching once. Thresholds are loose on purpose:
+  this checks the shaft is drawn as designed, not pixel-perfect against a golden image. The repeat
+  threshold is derived from the pack tile height rather than picked, so it follows the art.
 - `review-screenshot.mjs` decodes a PNG (8-bit, non-interlaced) and prints a contrast-normalised
   luminance map plus colour statistics, optionally for a `--crop`. It is how a rendered
   `screenshots/*.png` is actually read: a screenshot is for human review, but composition and
@@ -91,6 +101,10 @@
   rail tile being stretched 9.4× instead of repeating, which no assertion in this directory covered.
 
 ## Local Contracts (continued)
+- **When a rendering defect escapes the suite, automate the review that found it.** The stretched
+  rail was found by decoding a screenshot by hand; `browser-shaft-render.mjs` now asserts the same
+  property in `npm run gate`, mutation-checked by restoring the stretch (3 repeats, fail) against
+  the fix (12 repeats, pass). A defect that only a human could see is a defect that will return.
 - **A service worker's install must cache what the page fetches at runtime, not only what the HTML
   names.** The art pack is loaded by Phaser at boot, so a worker that read `index.html` alone left
   the shaft blank offline — the failure looked like "the offline page rendered but two requests

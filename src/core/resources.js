@@ -8,6 +8,9 @@
 
 import { config } from '../data/config.js';
 import { RESOURCE_CATEGORIES, getResource, resourceOfCategory } from '../data/resources.js';
+
+/** Valid sell categories, so an unknown one is refused rather than treated as empty. */
+const CATEGORY_IDS = new Set(Object.values(RESOURCE_CATEGORIES));
 import { M } from './numbers/magnitude.js';
 
 /** Unit sell value of one resource at its own depth tier. */
@@ -68,7 +71,7 @@ function isSellableAmount(amount) {
 }
 
 /** Sells a specific quantity of one resource for currency. */
-export function sellResource(state, resourceId, amount) {
+export function sellAmount(state, resourceId, amount) {
   if (!getResource(resourceId)) {
     return { ok: false, reason: 'unknown_resource' };
   }
@@ -84,6 +87,27 @@ export function sellResource(state, resourceId, amount) {
   creditEarnings(state, value);
 
   return { ok: true, resourceId, amount, value, currency: state.currency };
+}
+
+/**
+ * Sells the active tier's resource of one category, leaving every other resource banked.
+ *
+ * This is the per-category sell the HUD offers: a player holding quartz they want to keep does not
+ * have to sell it to raise currency from ore. Only the tier being worked is sold, because the
+ * shallower tiers' resources are a separate (and usually smaller) pile.
+ */
+export function sellCategory(state, category) {
+  if (!CATEGORY_IDS.has(category)) {
+    return { ok: false, reason: 'unknown_category' };
+  }
+
+  const definition = resourceOfCategory(state.depthTier, category);
+  const held = definition ? inventoryOf(state, definition.id) : 0;
+  if (!definition || !M.gt(held, 0)) {
+    return { ok: false, reason: 'insufficient_resource' };
+  }
+
+  return sellAmount(state, definition.id, held);
 }
 
 /**

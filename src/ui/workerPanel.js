@@ -2,8 +2,12 @@
  * Worker panel.
  *
  * The management layer: hire named workers, put each one on a specific drill or resource
- * category, and train them. Rows are reconciled rather than rebuilt, so a worker keeps its
- * focus and scroll position while the roster changes around it.
+ * category, rename, train, or dismiss them. Rows are reconciled rather than rebuilt, so a
+ * worker keeps its focus and scroll position while the roster changes around it.
+ *
+ * Assignment options are depth-gated: a drill the mine has not reached is not a target. The
+ * one exception is a drill the worker is *already* assigned to — a save can legitimately hold
+ * such an assignment, and silently dropping it from the list would clear crew work.
  */
 
 import { formatNumber } from '../core/numberFormat.js';
@@ -12,6 +16,7 @@ import { config } from '../data/config.js';
 import { drills } from '../data/drills.js';
 import { CATEGORY_LABELS, ASSIGNMENT_KINDS } from '../data/workers.js';
 import { RESOURCE_CATEGORIES } from '../data/resources.js';
+import { createConfirmModal } from './confirmModal.js';
 import { createElement, field } from './dom.js';
 
 /** Encodes an assignment as a single `<select>` value: 'drill:drill-1'. */
@@ -34,6 +39,20 @@ function percent(value, notation) {
   return `${formatNumber(value * 100, { notation })}%`;
 }
 
+/**
+ * The drill options a mine may assign to right now: every reached tier, plus a drill a worker
+ * is already on even if the mine has since moved on (it shows as the current selection).
+ */
+function assignableDrills(state) {
+  const reached = Object.values(drills).filter((drill) => drill.tier <= state.depthTier);
+  const held = new Set(
+    (state.workers ?? [])
+      .filter((worker) => worker.assignment?.kind === ASSIGNMENT_KINDS.DRILL)
+      .map((worker) => worker.assignment.id),
+  );
+  return [...reached, ...Object.values(drills).filter((drill) => held.has(drill.id))];
+}
+
 function createAssignmentSelect(worker, dispatch) {
   const select = createElement('select', {
     className: 'worker__assign',
@@ -41,14 +60,6 @@ function createAssignmentSelect(worker, dispatch) {
   });
 
   select.append(createElement('option', { text: 'Idle', attrs: { value: '' } }));
-  for (const drill of Object.values(drills)) {
-    select.append(
-      createElement('option', {
-        text: drill.name,
-        attrs: { value: `${ASSIGNMENT_KINDS.DRILL}:${drill.id}` },
-      }),
-    );
-  }
   for (const category of Object.values(RESOURCE_CATEGORIES)) {
     select.append(
       createElement('option', {
@@ -69,12 +80,43 @@ function createAssignmentSelect(worker, dispatch) {
   return select;
 }
 
-function createRow(worker, dispatch) {
+/** Refreshes the drill options to the mine's current reach, preserving the chosen value. */
+function refreshDrillOptions(select, state) {
+  const current = select.value;
+  // Options after the fixed Idle + category block.
+  for (const option of [...select.options].slice(1 + Object.values(RESOURCE_CATEGORIES).length)) {
+    option.remove();
+  }
+
+  for (const drill of assignableDrills(state)) {
+    select.append(
+      createElement('option', {
+        text: drill.name,
+        attrs: { value: `${ASSIGNMENT_KINDS.DRILL}:${drill.id}` },
+      }),
+    );
+  }
+
+  if ([...select.options].some((option) => option.value === current)) {
+    select.value = current;
+  }
+}
+
+function createRow(worker, dispatch, { onDismiss }) {
+  const handle = { worker };
   const name = field('worker-name');
   const level = field('worker-level');
   const speed = field('worker-speed');
   const luck = field('worker-luck');
   const trainCostField = field('train-cost');
+  const renameInput = createElement('input', {
+    className: 'worker__rename',
+    attrs: {
+      type: 'text',
+      'data-field': 'worker-rename',
+      'aria-label': `Rename ${worker.name}`,
+    },
+  });
 
   const trainButton = createElement('button', {
     className: 'worker__train',
@@ -85,13 +127,35 @@ function createRow(worker, dispatch) {
     dispatch?.({ type: 'trainWorker', workerId: row.dataset.worker });
   });
 
+  const renameButton = createElement('button', {
+    className: 'worker__rename-button',
+    text: 'Rename',
+    attrs: { type: 'button', 'data-action': 'rename-worker' },
+  });
+  renameButton.addEventListener('click', () => {
+    const name = renameInput.value;
+    if (name.trim().length === 0) {
+      return;
+    }
+    dispatch?.({ type: 'renameWorker', workerId: row.dataset.worker, name });
+  });
+
+  const dismissButton = createElement('button', {
+    className: 'worker__dismiss',
+    text: 'Dismiss',
+    attrs: { type: 'button', 'data-action': 'dismiss-worker', 'aria-label': `Dismiss ${worker.name}` },
+  });
+  dismissButton.addEventListener('click', () => {
+    onDismiss?.(row.dataset.worker, handle.worker?.name ?? '');
+  });
+
   const row = createElement('li', {
     className: 'worker',
     dataset: { worker: worker.id },
     children: [
       createElement('div', {
         className: 'worker__head',
-        children: [name, level],
+        children: [name, level, dismissButton],
       }),
       createElement('div', {
         className: 'worker__stats',
@@ -99,20 +163,45 @@ function createRow(worker, dispatch) {
       }),
       createAssignmentSelect(worker, dispatch),
       createElement('div', {
+        className: 'worker__rename-row',
+        children: [renameInput, renameButton],
+      }),
+      createElement('div', {
         className: 'worker__train-row',
         children: [trainButton, trainCostField],
       }),
     ],
   });
 
-  return { worker, element: row, name, level, speed, luck, trainCostField, trainButton };
+  handle.element = row;
+  handle.name = name;
+  handle.level = level;
+  handle.speed = speed;
+  handle.luck = luck;
+  handle.trainCostField = trainCostField;
+  handle.trainButton = trainButton;
+  handle.renameInput = renameInput;
+  return handle;
 }
+
 
 export function createWorkerPanel({ root, dispatch } = {}) {
   const lockNote = field('worker-lock', '');
   const hireCostField = field('hire-cost', '');
   const list = createElement('ul', { className: 'workers__list' });
   const rows = new Map();
+
+  // Dismissing is irreversible and pays no refund, so it goes through the shared destructive
+  // confirmation. Opening dispatches nothing; only the modal's confirm issues the command.
+  const dismissModal = createConfirmModal({
+    title: 'Dismiss this worker?',
+    message: '',
+    confirmLabel: 'Dismiss',
+    cancelLabel: 'Keep',
+    dialogName: 'dismiss-worker',
+    onConfirm: () => dispatch?.({ type: 'dismissWorker', workerId: pendingDismissId }),
+  });
+  let pendingDismissId = null;
 
   const hireButton = createElement('button', {
     className: 'workers__hire-button',
@@ -136,18 +225,29 @@ export function createWorkerPanel({ root, dispatch } = {}) {
         ],
       }),
       list,
+      dismissModal.element,
     ],
   });
 
   root?.append(element);
 
-  function updateRow(row, worker, notation) {
+  function askDismiss(workerId, workerName) {
+    pendingDismissId = workerId;
+    dismissModal.open();
+    const message = dismissModal.element.querySelector('.confirm__message');
+    if (message) {
+      message.textContent = `${workerName || 'This worker'} leaves the crew and does not refund their hire cost.`;
+    }
+  }
+
+  function updateRow(row, worker, state, notation) {
     row.name.textContent = worker.name;
     row.level.textContent = `Lv ${worker.level}`;
     row.speed.textContent = `+${percent(worker.speed, notation)} speed`;
     row.luck.textContent = `+${percent(worker.luck, notation)} luck`;
 
     const select = row.element.querySelector('[data-field="worker-assignment"]');
+    refreshDrillOptions(select, state);
     select.value = encodeAssignment(worker.assignment);
 
     const cost = trainCost(worker);
@@ -172,12 +272,12 @@ export function createWorkerPanel({ root, dispatch } = {}) {
       seen.add(worker.id);
       let row = rows.get(worker.id);
       if (!row) {
-        row = createRow(worker, dispatch);
+        row = createRow(worker, dispatch, { onDismiss: askDismiss });
         rows.set(worker.id, row);
         list.append(row.element);
       }
       row.worker = worker;
-      updateRow(row, worker, notation);
+      updateRow(row, worker, state, notation);
     }
 
     for (const [id, row] of [...rows]) {
@@ -185,6 +285,12 @@ export function createWorkerPanel({ root, dispatch } = {}) {
         row.element.remove();
         rows.delete(id);
       }
+    }
+
+    // A dismissed worker's modal must not offer an action that can no longer succeed.
+    if (pendingDismissId !== null && !seen.has(pendingDismissId)) {
+      pendingDismissId = null;
+      dismissModal.close();
     }
   }
 

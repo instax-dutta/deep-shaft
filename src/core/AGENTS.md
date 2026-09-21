@@ -8,6 +8,17 @@
 - Resource, drill, production, offline, depth, worker, event, prestige, and number-format rules belong here.
 
 ## Local Contracts
+- Selling has three commands, all in `resources.js`: `sellAmount(state, id, amount)` for a quantity,
+  `sellCategory(state, category)` for the active tier's resource of one category, and
+  `sellAll(state, id?)` for everything. `sellCategory` sells only the tier being worked, so a
+  shallower tier's pile is never cashed in by a category-wide sell.
+- Crew commands: `assignWorker`, `trainWorker`, `renameWorker`, `dismissWorker`. Dismissal pays **no
+  refund** (recorded decision): refunding would make hiring a risk-free way to park currency. The UI
+  confirms before dispatching, because the loss is real.
+- Assignment validity has two forms on purpose. `isValidAssignment(assignment, state)` gates the
+  *command* and refuses a drill the mine has not dug down to (`invalid_target`). `normalizeWorker`
+  repairs a *stored* assignment structurally, so loading a save never strips crew work it legitimately
+  held. Do not collapse the two: gating repair would delete player data on a code change.
 - Core modules must be usable in Vitest without Phaser, DOM, localStorage, or real time.
 - Save loading is an outcome, not a boolean: `migrateSave` / `deserializeResult` return
   `{ ok: true, state, fromVersion }` or `{ ok: false, reason }` using `SAVE_LOAD_REASONS`.

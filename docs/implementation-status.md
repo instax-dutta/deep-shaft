@@ -26,7 +26,7 @@
 | P6 | Settings, notation, safe destructive actions | Complete |
 | P7 | Accessibility hardening | Complete |
 | P8 | PWA and installability | Complete |
-| P9 | Game-feel and UX polish | Pending |
+| P9 | Game-feel and UX polish | In progress (core landed; UI pending) |
 | P10 | First-run tutorial | Pending |
 | P11 | Audio layer | Pending |
 | P12 | Economy simulation and rebalance | Complete |
@@ -136,6 +136,29 @@ Evidence: full suite 511 passed (42 files); `npm run gate` green (unit tests, bu
 scenario seeded `currency: 5_000_000` by hand, which the new ladder outgrew, so the scripted run
 stopped short of the deepest tier. It now derives its seeded currency from `depthTierCost()`.
 
+### P9 — game-feel and UX polish (in progress: core landed)
+
+The core commands landed first, each with its refusals proven byte-for-byte non-destructive:
+
+- `sellCategory(state, category)` sells the *active tier's* resource of one category, so a player
+  keeping quartz does not have to sell it to bank ore. `sellAmount` is the quantity command; it is a
+  rename of the existing `sellResource`, not a second implementation of it.
+- `renameWorker(state, id, name)` trims and refuses an empty name; `dismissWorker(state, id)` removes
+  a worker and pays no refund (the recorded policy).
+- `isValidAssignment(assignment, state)` now refuses a drill the mine has not dug down to, which was
+  a real bug: `workerPanel` listed every drill tier regardless of depth, so a worker could be parked
+  on a drill that did not exist yet and contribute nothing visible. `normalizeWorker` deliberately
+  keeps the structural check, so save repair still never strips stored crew work.
+
+Evidence: full suite 562 passed (45 files); `npm run gate` green (59/59 smoke, 7/7 event, 49/49
+responsive, 5/5 shaft render, 9/9 PWA). Recorded RED: `sellAmount is not a function` and the missing
+`renameWorker`/`dismissWorker` symbols. Mutations caught: selling the surface tier instead of the
+active one, and ignoring the depth gate on assignment (3 failures, reverted).
+
+**Remaining in this phase:** the UI half — per-resource sell controls wired to `sellCategory`,
+confirmation toasts for purchases and sales, the worker rename/dismiss controls behind a confirm, and
+filtering `workerPanel`'s assignment list to unlocked drills.
+
 ### Art pack (non-TDD track, owner-decided)
 
 The owner chose an **in-house authored pack** over a vendored CC0 one, and extended it past the
@@ -164,6 +187,14 @@ pattern rendered as a single 66-pixel wooden block instead of repeating down the
 squashes to the strip width but keeps its natural height, and `tests/scenes/shaftVisual.test.js`
 asserts that (`expected 15 to be 1` was the recorded RED). Both steel rails and the repeating
 sleepers are now visible in the strip.
+
+That review is now automated rather than a habit. `scripts/browser-shaft-render.mjs` seeds the
+deepest mine, screenshots the shaft canvas, decodes it, and asserts what a broken render loses: real
+texture rather than flat fill, a distinct rock colour per stratum, rock darkening with depth, and a
+lining that repeats down both edges. It is mutation-checked against the defect it exists for — the
+stretched rail scores 3 repeats against a required 5 and fails, the fix scores 12. The repeat
+threshold is derived from the pack tile height, so it follows the art instead of being tuned once.
+It runs in `npm run gate` and writes `screenshots/shaft-depth5.png` for human review.
 
 ### P8 — installable PWA with an offline app shell
 

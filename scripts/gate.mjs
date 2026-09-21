@@ -17,6 +17,7 @@ const STEPS = [
   { label: 'Production build', command: 'npm', args: ['run', 'build'] },
   { label: 'Browser smoke + events', command: 'npm', args: ['run', 'test:browser'] },
   { label: 'Browser responsive layout', command: 'npm', args: ['run', 'test:browser:responsive'] },
+  { label: 'Browser shaft render', command: 'npm', args: ['run', 'test:browser:render'] },
   { label: 'Browser PWA + offline', command: 'npm', args: ['run', 'test:browser:pwa'] },
 ];
 

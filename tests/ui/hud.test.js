@@ -186,3 +186,37 @@ describe('hud', () => {
     expect(field('ore-name').textContent).toBe(tierTwoOre.name);
   });
 });
+
+describe('hud per-category selling', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('offers a sell control for each resource category of the active tier', () => {
+    const { hud } = mount();
+    hud.render(createInitialState());
+
+    for (const category of Object.values(RESOURCE_CATEGORIES)) {
+      expect(hud.element.querySelector(`[data-action="sell-${category}"]`)).not.toBeNull();
+    }
+  });
+
+  it('dispatches a sellCategory command for the chosen category', () => {
+    const { hud, dispatch } = mount();
+    hud.render(createInitialState());
+
+    hud.element.querySelector('[data-action="sell-gems"]').click();
+
+    expect(dispatch).toHaveBeenCalledWith({ type: 'sellCategory', category: RESOURCE_CATEGORIES.GEMS });
+  });
+
+  it('keeps the whole-inventory sell beside the category sells', () => {
+    const { hud, dispatch } = mount();
+    hud.render(createInitialState());
+
+    const sellAll = hud.element.querySelector('[data-action="sell-all"]');
+    expect(sellAll).not.toBeNull();
+    sellAll.click();
+    expect(dispatch).toHaveBeenCalledWith({ type: 'sellAll' });
+  });
+});

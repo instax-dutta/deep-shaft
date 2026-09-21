@@ -22,8 +22,8 @@ function statCell(labelText, valueElement) {
   });
 }
 
-/** A resource cell showing the tier's resource name beside its banked amount. */
-function resourceCell(labelText, nameElement, amountElement) {
+/** A resource cell showing the tier's resource name, its banked amount, and a sell control. */
+function resourceCell(labelText, nameElement, amountElement, sellButton) {
   return createElement('div', {
     className: 'hud__stat',
     children: [
@@ -32,8 +32,20 @@ function resourceCell(labelText, nameElement, amountElement) {
         className: 'hud__value',
         children: [nameElement, amountElement],
       }),
+      sellButton,
     ],
   });
+}
+
+/** Per-category sell control: selling gems must not force selling the ore too. */
+function categorySellButton(category, dispatch) {
+  const button = createElement('button', {
+    className: 'hud__sell',
+    text: 'Sell',
+    attrs: { type: 'button', 'data-action': `sell-${category}` },
+  });
+  button.addEventListener('click', () => dispatch?.({ type: 'sellCategory', category }));
+  return button;
 }
 
 export function createHud({ root, dispatch } = {}) {
@@ -70,9 +82,14 @@ export function createHud({ root, dispatch } = {}) {
     attrs: { 'aria-label': 'Mine status' },
     children: [
       statCell('Currency', currency),
-      resourceCell('Ore', oreName, oreAmount),
-      resourceCell('Gems', gemName, gemAmount),
-      resourceCell('Rare finds', rareName, rareAmount),
+      resourceCell('Ore', oreName, oreAmount, categorySellButton(RESOURCE_CATEGORIES.ORE, dispatch)),
+      resourceCell('Gems', gemName, gemAmount, categorySellButton(RESOURCE_CATEGORIES.GEMS, dispatch)),
+      resourceCell(
+        'Rare finds',
+        rareName,
+        rareAmount,
+        categorySellButton(RESOURCE_CATEGORIES.RARE, dispatch),
+      ),
       status,
       statCell('Per second', rate),
       statCell('Depth', depth),

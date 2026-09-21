@@ -4,9 +4,12 @@ import { createInitialState } from '../../src/core/state.js';
 import {
   assignWorker,
   canHireWorker,
+  dismissWorker,
   findWorker,
   hireCost,
   hireWorker,
+  normalizeWorker,
+  renameWorker,
   trainCost,
   trainWorker,
   workerEffects,
@@ -372,5 +375,157 @@ describe('canHireWorker', () => {
     state.currency = 100_000;
 
     expect(canHireWorker(state).reason).toBe('workers_locked');
+  });
+});
+
+describe('assignWorker drill gating', () => {
+  it('refuses a drill below the deepest reachable tier while it is locked', () => {
+    const state = staffedMine({ workers: 1 });
+    const borer = getDrill('drill-4');
+    const before = structuredClone(state);
+
+    const result = assignWorker(state, state.workers[0].id, { kind: 'drill', id: borer.id });
+
+    expect(result).toEqual({ ok: false, reason: 'invalid_target' });
+    expect(state).toEqual(before);
+  });
+
+  it('allows a drill whose tier the mine has reached', () => {
+    const state = staffedMine({ workers: 1 });
+    state.depthTier = 2;
+    const scraper = getDrill('drill-2');
+
+    const result = assignWorker(state, state.workers[0].id, { kind: 'drill', id: scraper.id });
+
+    expect(result.ok).toBe(true);
+    expect(state.workers[0].assignment).toEqual({ kind: 'drill', id: scraper.id });
+  });
+
+  it('still allows a resource category, which is not depth gated', () => {
+    const state = staffedMine({ workers: 1 });
+
+    const result = assignWorker(state, state.workers[0].id, {
+      kind: 'category',
+      id: RESOURCE_CATEGORIES.RARE,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('still clears an assignment with null', () => {
+    const state = staffedMine({ workers: 1 });
+    assignWorker(state, state.workers[0].id, { kind: 'drill', id: firstDrill.id });
+
+    const result = assignWorker(state, state.workers[0].id, null);
+
+    expect(result.ok).toBe(true);
+    expect(state.workers[0].assignment).toBeNull();
+  });
+});
+
+describe('normalizeWorker assignment repair', () => {
+  it('keeps a stored assignment to a deeper drill, rather than stripping it', () => {
+    // The depth gate belongs to the *command*. Repairing a save is structural, so loading never
+    // silently strips crew work the player legitimately had (a hand-edited or future save can hold
+    // an assignment the current depth cannot reach).
+    const borer = getDrill('drill-4');
+    const load = normalizeWorker({
+      id: 'worker-1',
+      name: 'Tova Irons',
+      level: 3,
+      speed: 0.15,
+      luck: 0.05,
+      assignment: { kind: 'drill', id: borer.id },
+    });
+
+    expect(load.assignment).toEqual({ kind: 'drill', id: borer.id });
+  });
+
+  it('still drops an assignment that names nothing real', () => {
+    const load = normalizeWorker({
+      id: 'worker-1',
+      name: 'Tova Irons',
+      assignment: { kind: 'drill', id: 'drill-99' },
+    });
+
+    expect(load.assignment).toBeNull();
+  });
+});
+
+describe('renameWorker', () => {
+  it('renames only the named worker', () => {
+    const state = staffedMine({ workers: 2 });
+    const [first, second] = state.workers;
+    const otherName = second.name;
+
+    const result = renameWorker(state, first.id, 'Tova Irons');
+
+    expect(result).toEqual({ ok: true, workerId: first.id, name: 'Tova Irons' });
+    expect(first.name).toBe('Tova Irons');
+    expect(second.name).toBe(otherName);
+  });
+
+  it('trims surrounding whitespace', () => {
+    const state = staffedMine({ workers: 1 });
+
+    renameWorker(state, state.workers[0].id, '  Silas Cragg  ');
+
+    expect(state.workers[0].name).toBe('Silas Cragg');
+  });
+
+  it('refuses an empty name with state byte-for-byte unchanged', () => {
+    const state = staffedMine({ workers: 1 });
+    const before = structuredClone(state);
+
+    for (const name of ['', '   ', null, 42]) {
+      expect(renameWorker(state, state.workers[0].id, name)).toEqual({
+        ok: false,
+        reason: 'invalid_name',
+      });
+    }
+    expect(state).toEqual(before);
+  });
+
+  it('refuses an unknown worker with state byte-for-byte unchanged', () => {
+    const state = staffedMine({ workers: 1 });
+    const before = structuredClone(state);
+
+    expect(renameWorker(state, 'worker-99', 'Nobody')).toEqual({
+      ok: false,
+      reason: 'unknown_worker',
+    });
+    expect(state).toEqual(before);
+  });
+});
+
+describe('dismissWorker', () => {
+  it('removes the worker from the roster', () => {
+    const state = staffedMine({ workers: 2 });
+    const [first, second] = state.workers;
+
+    const result = dismissWorker(state, first.id);
+
+    expect(result.ok).toBe(true);
+    expect(state.workers.map((worker) => worker.id)).toEqual([second.id]);
+  });
+
+  it('pays no refund, which is the recorded policy', () => {
+    const state = staffedMine({ workers: 1 });
+    const before = state.currency;
+
+    dismissWorker(state, state.workers[0].id);
+
+    expect(state.currency).toBe(before);
+  });
+
+  it('refuses an unknown id with state byte-for-byte unchanged', () => {
+    const state = staffedMine({ workers: 1 });
+    const before = structuredClone(state);
+
+    expect(dismissWorker(state, 'worker-99')).toEqual({
+      ok: false,
+      reason: 'unknown_worker',
+    });
+    expect(state).toEqual(before);
   });
 });

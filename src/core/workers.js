@@ -113,7 +113,8 @@ export function hireWorker(state, { random = Math.random } = {}) {
   return { ok: true, worker, cost: check.cost };
 }
 
-function isValidAssignment(assignment) {
+/** Whether an assignment names something that exists, ignoring whether the mine can reach it. */
+function isStructuralAssignment(assignment) {
   if (!assignment || typeof assignment !== 'object') {
     return false;
   }
@@ -124,6 +125,30 @@ function isValidAssignment(assignment) {
     return isAssignableCategory(assignment.id);
   }
   return false;
+}
+
+/**
+ * Whether the mine may assign a worker to this target right now.
+ *
+ * A drill the mine has not dug down to is not a target: the panel used to list every drill tier
+ * regardless of depth, so a worker could be parked on a drill that did not exist yet and contribute
+ * nothing visible. Resource categories are not depth gated — the category bonus applies to whatever
+ * the active tier produces.
+ *
+ * This is deliberately *not* what `normalizeWorker` uses. A stored assignment is repaired
+ * structurally, so a save is never silently stripped of crew work it legitimately had.
+ */
+export function isValidAssignment(assignment, state) {
+  if (!isStructuralAssignment(assignment)) {
+    return false;
+  }
+  if (assignment.kind !== ASSIGNMENT_KINDS.DRILL) {
+    return true;
+  }
+
+  const definition = getDrill(assignment.id);
+  const depth = Number.isFinite(state?.depthTier) ? state.depthTier : 0;
+  return definition.tier <= depth;
 }
 
 /** Puts a worker on a drill or resource category, or clears its assignment with `null`. */
@@ -138,12 +163,44 @@ export function assignWorker(state, workerId, assignment) {
     return { ok: true, workerId, assignment: null };
   }
 
-  if (!isValidAssignment(assignment)) {
+  if (!isValidAssignment(assignment, state)) {
     return { ok: false, reason: 'invalid_target' };
   }
 
   worker.assignment = { kind: assignment.kind, id: assignment.id };
   return { ok: true, workerId, assignment: worker.assignment };
+}
+
+/** Renames a worker. The roster is the only place a name is used. */
+export function renameWorker(state, workerId, name) {
+  const worker = findWorker(state, workerId);
+  if (!worker) {
+    return { ok: false, reason: 'unknown_worker' };
+  }
+  if (typeof name !== 'string' || name.trim().length === 0) {
+    return { ok: false, reason: 'invalid_name' };
+  }
+
+  const trimmed = name.trim();
+  worker.name = trimmed;
+  return { ok: true, workerId, name: trimmed };
+}
+
+/**
+ * Removes a worker from the roster.
+ *
+ * Recorded decision: dismissal pays no refund. The hire cost bought the worker's work, and refunding
+ * it would make hiring a risk-free way to park currency. The UI confirms before dispatching because
+ * the loss is real and irreversible.
+ */
+export function dismissWorker(state, workerId) {
+  const index = (state.workers ?? []).findIndex((worker) => worker.id === workerId);
+  if (index === -1) {
+    return { ok: false, reason: 'unknown_worker' };
+  }
+
+  const [dismissed] = state.workers.splice(index, 1);
+  return { ok: true, workerId, worker: dismissed };
 }
 
 /** Trains a worker one level, raising both stats. */
@@ -219,7 +276,7 @@ export function normalizeWorker(candidate) {
   }
 
   const level = toNumber(candidate.level, 1);
-  const assignment = isValidAssignment(candidate.assignment) ? candidate.assignment : null;
+  const assignment = isStructuralAssignment(candidate.assignment) ? candidate.assignment : null;
 
   return {
     id: candidate.id,

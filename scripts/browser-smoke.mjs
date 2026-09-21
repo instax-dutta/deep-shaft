@@ -42,7 +42,7 @@ const richSave = {
   schemaVersion: 1,
   currency: ladderCurrency * 2,
   depthTier: 1,
-  resources: {},
+  resources: { 'tier1-ore': 100, 'tier1-gems': 50 },
   drills: { 'drill-1': 10 },
   workers: [],
   prestige: { count: 0, multiplier: 1, lifetimeEarned: 0 },
@@ -121,6 +121,9 @@ try {
   await drillRow.locator('[data-mode="x1"]').click();
   reporter.check('buying a drill records ownership',
     (await drillRow.locator('[data-field="owned"]').innerText()).trim() === '1');
+  reporter.check('a purchase confirms the amount spent',
+    (await page.locator('.toast').innerText()).includes('Bought 1 Hand Drill for'),
+    await page.locator('.toast').innerText());
   reporter.check('the HUD reports a production rate', (await text(page, 'rate')).includes('/s'),
     await text(page, 'rate'));
 
@@ -183,6 +186,23 @@ try {
   reporter.check('a seeded rich save loads its currency', (await text(seeded, 'currency')) !== '0',
     await text(seeded, 'currency'));
 
+  // --- Per-category selling -------------------------------------------------
+  // Ore is produced fast by the 10 drills, so selling gems is the unambiguous read: gems do not
+  // come back within the snapshot gap, while ore would drift.
+  const gemsBeforeSell = Number(await text(seeded, 'gem-amount'));
+  const oreBeforeSell = await text(seeded, 'ore-amount');
+  await seeded.locator('[data-action="sell-gems"]').click();
+  await seeded.waitForTimeout(200);
+  const gemsAfterSell = Number(await text(seeded, 'gem-amount'));
+  reporter.check('selling one category clears only that category',
+    gemsAfterSell < gemsBeforeSell / 2, `${gemsBeforeSell} -> ${gemsAfterSell}`);
+  reporter.check('selling one category leaves the rest banked',
+    Number(await text(seeded, 'ore-amount')) >= Number(oreBeforeSell),
+    `ore ${oreBeforeSell} -> ${await text(seeded, 'ore-amount')}`);
+  reporter.check('selling one category is announced with the resource name',
+    (await seeded.locator('.toast').innerText()).includes('Quartz'),
+    await seeded.locator('.toast').innerText());
+
   const digButton = seeded.locator('[data-action="dig-deeper"]');
   reporter.check('digging is affordable and enabled', (await digButton.isDisabled()) === false);
 
@@ -241,6 +261,28 @@ try {
   reporter.check('training raises the worker level',
     (await firstWorker.innerText()).includes('Lv 2'),
     (await firstWorker.innerText()).replace(/\s+/g, ' ').slice(0, 50));
+
+  // --- Rename and dismiss ---------------------------------------------------
+  await firstWorker.locator('[data-field="worker-rename"]').fill('Peta Quarry');
+  await firstWorker.locator('[data-action="rename-worker"]').click();
+  await seeded.waitForTimeout(200);
+  reporter.check('a worker can be renamed',
+    (await firstWorker.innerText()).includes('Peta Quarry'),
+    (await firstWorker.innerText()).replace(/\s+/g, ' ').slice(0, 50));
+
+  const dismissDialog = seeded.locator('[data-dialog="dismiss-worker"]');
+  await firstWorker.locator('[data-action="dismiss-worker"]').click();
+  reporter.check('dismissing a worker asks for confirmation first',
+    (await dismissDialog.isVisible()) && (await workerRows.count()) === 1,
+    `dialog ${await dismissDialog.isVisible()}, crew ${await workerRows.count()}`);
+  await dismissDialog.locator('[data-action="cancel"]').click();
+  reporter.check('cancelling a dismissal keeps the crew', (await workerRows.count()) === 1);
+
+  await firstWorker.locator('[data-action="dismiss-worker"]').click();
+  await dismissDialog.locator('[data-action="confirm"]').click();
+  await seeded.waitForTimeout(200);
+  reporter.check('confirming a dismissal removes the worker', (await workerRows.count()) === 0,
+    `crew ${await workerRows.count()}`);
 
   // --- Touch targets --------------------------------------------------------
   const tooSmall = await seeded.evaluate(() => {

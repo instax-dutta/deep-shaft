@@ -5,7 +5,6 @@ import { createWorkerPanel } from '../../src/ui/workerPanel.js';
 import { createInitialState } from '../../src/core/state.js';
 import { hireCost, trainCost } from '../../src/core/workers.js';
 import { config } from '../../src/data/config.js';
-import { drills } from '../../src/data/drills.js';
 import { RESOURCE_CATEGORIES } from '../../src/data/resources.js';
 
 function worker(overrides = {}) {
@@ -126,13 +125,14 @@ describe('workerPanel', () => {
     expect(row('worker-1').querySelector('[data-field="worker-luck"]').textContent).toContain('1');
   });
 
-  it('offers an assignment option for every drill and resource category', () => {
+  it('offers an assignment option for the reached drill tiers and every resource category', () => {
     const { panel, row } = mount();
-    panel.render(unlockedMine({ workers: [worker()] }));
+    // Depth 3 on purpose: the panel lists drills the mine can actually reach.
+    panel.render(unlockedMine({ depthTier: 3, workers: [worker()] }));
 
     const options = [...row('worker-1').querySelectorAll('option')].map((option) => option.value);
 
-    for (const drillId of Object.keys(drills)) {
+    for (const drillId of ['drill-1', 'drill-2', 'drill-3']) {
       expect(options).toContain(`drill:${drillId}`);
     }
     for (const category of Object.values(RESOURCE_CATEGORIES)) {
@@ -154,7 +154,7 @@ describe('workerPanel', () => {
 
   it('dispatches an assignWorker command with the chosen target', () => {
     const { panel, dispatch, row } = mount();
-    panel.render(unlockedMine({ workers: [worker()] }));
+    panel.render(unlockedMine({ depthTier: 2, workers: [worker()] }));
     const select = row('worker-1').querySelector('[data-field="worker-assignment"]');
 
     select.value = 'drill:drill-2';
@@ -227,5 +227,106 @@ describe('workerPanel', () => {
     panel.render(state);
 
     expect(panel.element.querySelectorAll('[data-worker]')).toHaveLength(0);
+  });
+});
+
+describe('workerPanel assignment gating and crew management', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('offers only drill tiers the mine has reached', () => {
+    const { panel, row } = mount();
+    const state = unlockedMine({ depthTier: 2, workers: [worker()] });
+
+    panel.render(state);
+
+    const options = [...row('worker-1').querySelectorAll('option')].map((option) => option.value);
+    expect(options).toContain('drill:drill-1');
+    expect(options).toContain('drill:drill-2');
+    expect(options).not.toContain('drill:drill-3');
+    expect(options).not.toContain('drill:drill-5');
+  });
+
+  it('grows the drill options when the mine digs deeper', () => {
+    const { panel, row } = mount();
+    const state = unlockedMine({ depthTier: 1, workers: [worker()] });
+    panel.render(state);
+    const before = [...row('worker-1').querySelectorAll('option')].map((o) => o.value);
+
+    state.depthTier = 3;
+    panel.render(state);
+
+    const after = [...row('worker-1').querySelectorAll('option')].map((o) => o.value);
+    expect(before).not.toContain('drill:drill-3');
+    expect(after).toContain('drill:drill-3');
+  });
+
+  it('keeps an option for a drill the worker is already on even while it is out of depth', () => {
+    // A save repaired from an older version can hold a structurally valid assignment to a drill
+    // above the current depth. The panel must still show it, or the select would silently clear it.
+    const { panel, row } = mount();
+    const roster = [worker({ assignment: { kind: 'drill', id: 'drill-4' } })];
+    panel.render(unlockedMine({ depthTier: 1, workers: roster }));
+
+    const options = [...row('worker-1').querySelectorAll('option')].map((option) => option.value);
+    expect(options).toContain('drill:drill-4');
+  });
+
+  it('dispatches a renameWorker command from the rename control', () => {
+    const { panel, dispatch, row } = mount();
+    panel.render(unlockedMine({ workers: [worker()] }));
+    const renameButton = row('worker-1').querySelector('[data-action="rename-worker"]');
+    const input = row('worker-1').querySelector('[data-field="worker-rename"]');
+
+    expect(renameButton).not.toBeNull();
+    expect(input).not.toBeNull();
+
+    input.value = 'Tova Irons';
+    renameButton.click();
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'renameWorker',
+      workerId: 'worker-1',
+      name: 'Tova Irons',
+    });
+  });
+
+  it('does not dispatch a rename for a blank name', () => {
+    const { panel, dispatch, row } = mount();
+    panel.render(unlockedMine({ workers: [worker()] }));
+
+    row('worker-1').querySelector('[data-field="worker-rename"]').value = '   ';
+    row('worker-1').querySelector('[data-action="rename-worker"]').click();
+
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('asks for confirmation before dismissing a worker', () => {
+    const { panel, dispatch, row } = mount();
+    panel.render(unlockedMine({ workers: [worker()] }));
+
+    row('worker-1').querySelector('[data-action="dismiss-worker"]').click();
+    expect(dispatch).not.toHaveBeenCalled();
+
+    const dialog = document.querySelector('[data-dialog="dismiss-worker"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog.hidden).toBe(false);
+    expect(dialog.textContent).toContain('Ada Vale');
+
+    dialog.querySelector('[data-action="confirm"]').click();
+    expect(dispatch).toHaveBeenCalledWith({ type: 'dismissWorker', workerId: 'worker-1' });
+  });
+
+  it('cancelling dismissal removes nobody', () => {
+    const { panel, dispatch, row } = mount();
+    panel.render(unlockedMine({ workers: [worker()] }));
+
+    row('worker-1').querySelector('[data-action="dismiss-worker"]').click();
+    const dialog = document.querySelector('[data-dialog="dismiss-worker"]');
+    dialog.querySelector('[data-action="cancel"]').click();
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(dialog.hidden).toBe(true);
   });
 });

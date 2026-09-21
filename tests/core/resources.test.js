@@ -4,9 +4,11 @@ import { createInitialState } from '../../src/core/state.js';
 import {
   mineManually,
   sellAll,
-  sellResource,
+  sellAmount,
+  sellCategory,
   sellValue,
 } from '../../src/core/resources.js';
+import { config } from '../../src/data/config.js';
 import { resourceOfCategory, RESOURCE_CATEGORIES } from '../../src/data/resources.js';
 
 const tierOneOre = resourceOfCategory(1, RESOURCE_CATEGORIES.ORE).id;
@@ -83,12 +85,12 @@ describe('sellValue', () => {
   });
 });
 
-describe('sellResource', () => {
+describe('sellAmount', () => {
   it('converts ore into currency at the sell value', () => {
     const state = createInitialState();
     state.resources[tierOneOre] = 10;
 
-    const result = sellResource(state, tierOneOre, 10);
+    const result = sellAmount(state, tierOneOre, 10);
 
     expect(result.ok).toBe(true);
     expect(state.currency).toBeCloseTo(sellValue(tierOneOre, 10), 10);
@@ -98,7 +100,7 @@ describe('sellResource', () => {
     const state = createInitialState();
     state.resources[tierOneOre] = 10;
 
-    sellResource(state, tierOneOre, 4);
+    sellAmount(state, tierOneOre, 4);
 
     expect(oreAmount(state)).toBeCloseTo(6, 10);
   });
@@ -107,7 +109,7 @@ describe('sellResource', () => {
     const state = createInitialState();
     state.resources[tierOneOre] = 10;
 
-    sellResource(state, tierOneOre, 10);
+    sellAmount(state, tierOneOre, 10);
 
     expect(state.resources).not.toHaveProperty(tierOneOre);
   });
@@ -116,7 +118,7 @@ describe('sellResource', () => {
     const state = createInitialState();
     state.resources[tierOneOre] = 10;
 
-    sellResource(state, tierOneOre, 10);
+    sellAmount(state, tierOneOre, 10);
 
     expect(state.stats.totalEarned).toBeCloseTo(state.currency, 10);
     expect(state.prestige.lifetimeEarned).toBeCloseTo(state.currency, 10);
@@ -127,7 +129,7 @@ describe('sellResource', () => {
     state.resources[tierOneOre] = 10;
     const before = structuredClone(state);
 
-    expect(sellResource(state, 'not-a-resource', 1)).toEqual({
+    expect(sellAmount(state, 'not-a-resource', 1)).toEqual({
       ok: false,
       reason: 'unknown_resource',
     });
@@ -139,7 +141,7 @@ describe('sellResource', () => {
     state.resources[tierOneOre] = 3;
     const before = structuredClone(state);
 
-    expect(sellResource(state, tierOneOre, 4)).toEqual({
+    expect(sellAmount(state, tierOneOre, 4)).toEqual({
       ok: false,
       reason: 'insufficient_resource',
     });
@@ -150,16 +152,16 @@ describe('sellResource', () => {
     const state = createInitialState();
     state.resources[tierOneOre] = 10;
 
-    expect(sellResource(state, tierOneOre, 0).reason).toBe('invalid_amount');
-    expect(sellResource(state, tierOneOre, -5).reason).toBe('invalid_amount');
-    expect(sellResource(state, tierOneOre, Number.NaN).reason).toBe('invalid_amount');
+    expect(sellAmount(state, tierOneOre, 0).reason).toBe('invalid_amount');
+    expect(sellAmount(state, tierOneOre, -5).reason).toBe('invalid_amount');
+    expect(sellAmount(state, tierOneOre, Number.NaN).reason).toBe('invalid_amount');
     expect(state.resources[tierOneOre]).toBe(10);
   });
 
   it('refuses to sell a resource that has never been mined', () => {
     const state = createInitialState();
 
-    expect(sellResource(state, tierOneOre, 1).reason).toBe('insufficient_resource');
+    expect(sellAmount(state, tierOneOre, 1).reason).toBe('insufficient_resource');
   });
 });
 
@@ -206,5 +208,101 @@ describe('sellAll', () => {
       ok: false,
       reason: 'unknown_resource',
     });
+  });
+});
+
+describe('sellCategory', () => {
+  it('sells the active tier resource of that category and banks the rest', () => {
+    const state = createInitialState();
+    state.depthTier = 2;
+    const surfaceOre = resourceOfCategory(1, RESOURCE_CATEGORIES.ORE).id;
+    const copper = resourceOfCategory(2, RESOURCE_CATEGORIES.ORE).id;
+    const quartz = resourceOfCategory(1, RESOURCE_CATEGORIES.GEMS).id;
+    state.resources[surfaceOre] = 7;
+    state.resources[copper] = 5;
+    state.resources[quartz] = 3;
+
+    const result = sellCategory(state, RESOURCE_CATEGORIES.ORE);
+
+    expect(result.ok).toBe(true);
+    expect(result.resourceId).toBe(copper);
+    expect(result.amount).toBe(5);
+    expect(result.value).toBeCloseTo(sellValue(copper, 5), 10);
+    // Only the tier being worked is sold: the shallower ore and the gems stay in the inventory.
+    expect(state.resources).toEqual({ [surfaceOre]: 7, [quartz]: 3 });
+  });
+
+  it('credits the earnings and reports the new balance', () => {
+    const state = createInitialState();
+    const quartz = resourceOfCategory(1, RESOURCE_CATEGORIES.GEMS).id;
+    state.resources[quartz] = 4;
+
+    const result = sellCategory(state, RESOURCE_CATEGORIES.GEMS);
+
+    expect(state.currency).toBeCloseTo(sellValue(quartz, 4), 10);
+    expect(result.currency).toBe(state.currency);
+    expect(state.stats.totalEarned).toBeCloseTo(sellValue(quartz, 4), 10);
+  });
+
+  it('refuses an unknown category with state byte-for-byte unchanged', () => {
+    const state = createInitialState();
+    state.resources[tierOneOre] = 5;
+    const before = structuredClone(state);
+
+    const result = sellCategory(state, 'not-a-category');
+
+    expect(result).toEqual({ ok: false, reason: 'unknown_category' });
+    expect(state).toEqual(before);
+  });
+
+  it('refuses when that category holds nothing, with state byte-for-byte unchanged', () => {
+    const state = createInitialState();
+    state.resources[tierOneOre] = 5;
+    const before = structuredClone(state);
+
+    const result = sellCategory(state, RESOURCE_CATEGORIES.RARE);
+
+    expect(result).toEqual({ ok: false, reason: 'insufficient_resource' });
+    expect(state).toEqual(before);
+  });
+
+  it('refuses to sell a category when the active tier has no such resource', () => {
+    const state = createInitialState();
+    state.depthTier = config.depth.tierCount + 1;
+    state.resources[tierOneOre] = 5;
+    const before = structuredClone(state);
+
+    const result = sellCategory(state, RESOURCE_CATEGORIES.ORE);
+
+    expect(result.ok).toBe(false);
+    expect(state).toEqual(before);
+  });
+});
+
+describe('sellAmount refusals', () => {
+  it('refuses a non-positive amount with state byte-for-byte unchanged', () => {
+    const state = createInitialState();
+    state.resources[tierOneOre] = 5;
+    const before = structuredClone(state);
+
+    for (const amount of [0, -5, Number.NaN]) {
+      expect(sellAmount(state, tierOneOre, amount)).toEqual({
+        ok: false,
+        reason: 'invalid_amount',
+      });
+    }
+    expect(state).toEqual(before);
+  });
+
+  it('refuses an amount above the inventory with state byte-for-byte unchanged', () => {
+    const state = createInitialState();
+    state.resources[tierOneOre] = 4;
+    const before = structuredClone(state);
+
+    expect(sellAmount(state, tierOneOre, 5)).toEqual({
+      ok: false,
+      reason: 'insufficient_resource',
+    });
+    expect(state).toEqual(before);
   });
 });

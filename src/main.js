@@ -11,13 +11,21 @@ import { applyOfflineProgress } from './core/offline.js';
 import { performPrestige } from './core/prestige.js';
 import { buyUpgrade } from './core/prestigeUpgrades.js';
 import { advanceProduction } from './core/production.js';
-import { mineManually, sellAll } from './core/resources.js';
+import { mineManually, sellAll, sellCategory } from './core/resources.js';
 import { setSetting } from './core/settings.js';
 import { createInitialState } from './core/state.js';
-import { assignWorker, hireWorker, trainWorker } from './core/workers.js';
+import {
+  assignWorker,
+  dismissWorker,
+  hireWorker,
+  renameWorker,
+  trainWorker,
+} from './core/workers.js';
 import { config } from './data/config.js';
 import { getDepthTier } from './data/depthTiers.js';
+import { getDrill } from './data/drills.js';
 import { getPrestigeUpgrade } from './data/prestigeUpgrades.js';
+import { getResource } from './data/resources.js';
 import { createClock } from './platform/clock.js';
 import { createLifecycle } from './platform/lifecycle.js';
 import { createLocalStorageBackend, createStorage } from './platform/storage.js';
@@ -43,6 +51,8 @@ const REFUSAL_COPY = Object.freeze({
   unknown_drill: 'That drill does not exist.',
   invalid_mode: 'Unsupported purchase mode.',
   unknown_resource: 'That resource does not exist.',
+  unknown_category: 'That resource category does not exist.',
+  invalid_name: 'A worker needs a name.',
   insufficient_resource: 'Nothing to sell yet.',
   invalid_amount: 'That is not a valid amount.',
   max_depth: 'The shaft is already at its deepest.',
@@ -208,10 +218,32 @@ function boot() {
         break;
       }
 
+      case 'sellCategory': {
+        const result = sellCategory(state, command.category);
+        if (!result.ok) {
+          refuse(result.reason);
+        } else if (result.value > 0) {
+          const name = getResource(result.resourceId)?.name ?? 'resources';
+          notify(`Sold ${formatNumber(result.amount)} ${name} for ${formatNumber(result.value)}.`, {
+            tone: 'good',
+          });
+        } else {
+          notify('Nothing to sell yet.');
+        }
+        break;
+      }
+
       case 'buyDrill': {
         const result = buyDrill(state, command.drillId, command.mode);
         if (!result.ok) {
           refuse(result.reason);
+        } else {
+          // A spend worth making is worth confirming with the real number, so the player sees
+          // what a bulk buy actually cost.
+          notify(
+            `Bought ${result.quantity} ${getDrill(command.drillId)?.name ?? 'drill'} for ${formatNumber(result.cost)}.`,
+            { tone: 'good' },
+          );
         }
         break;
       }
@@ -240,6 +272,24 @@ function boot() {
         const result = assignWorker(state, command.workerId, command.assignment);
         if (!result.ok) {
           refuse(result.reason);
+        }
+        break;
+      }
+
+      case 'renameWorker': {
+        const result = renameWorker(state, command.workerId, command.name);
+        if (!result.ok) {
+          refuse(result.reason);
+        }
+        break;
+      }
+
+      case 'dismissWorker': {
+        const result = dismissWorker(state, command.workerId);
+        if (!result.ok) {
+          refuse(result.reason);
+        } else {
+          notify(`${result.worker?.name ?? 'Worker'} left the crew.`, { tone: 'warn' });
         }
         break;
       }

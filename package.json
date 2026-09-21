@@ -11,10 +11,11 @@
     "gate": "node scripts/gate.mjs",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "test:browser": "npm run test:browser:smoke && npm run test:browser:events && npm run test:browser:responsive && npm run test:browser:pwa",
+    "test:browser": "npm run test:browser:smoke && npm run test:browser:events && npm run test:browser:responsive && npm run test:browser:render && npm run test:browser:pwa",
     "test:browser:smoke": "node scripts/browser-smoke.mjs",
     "test:browser:events": "node scripts/browser-events.mjs",
     "test:browser:responsive": "node scripts/browser-responsive.mjs",
+    "test:browser:render": "node scripts/browser-shaft-render.mjs",
     "test:browser:pwa": "node scripts/browser-pwa.mjs"
   },
   "dependencies": {

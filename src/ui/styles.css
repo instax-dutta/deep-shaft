@@ -730,6 +730,75 @@ body {
   border: 1px solid var(--warn);
 }
 
+.confirm__message {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--ink-dim);
+}
+
+/* --- Per-category sells (HUD) --------------------------------------------- */
+
+.hud__sell {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: #2b2621;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.hud__sell:active {
+  filter: brightness(1.2);
+}
+
+/* --- Worker rename and dismissal ------------------------------------------- */
+
+.worker__dismiss {
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: #2b2621;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.worker__rename-row {
+  display: flex;
+  gap: 8px;
+}
+
+.worker__rename {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--ink);
+  background: #12100e;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+}
+
+.worker__rename-button {
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: #35302a;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 /* --- Accessibility ------------------------------------------------------- */
 
 /* A visible ring for keyboard users, without boxing every mouse click. */

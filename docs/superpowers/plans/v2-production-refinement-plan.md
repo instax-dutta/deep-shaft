@@ -985,7 +985,7 @@ showed the rail texture scaled to fill the shaft height, turning its 32-pixel la
 | P6 | Settings + notation + safe reset | complete | +20 | Evidence block P6 |
 | P7 | Accessibility | complete | +12 | Evidence block P7 |
 | P8 | PWA | complete | +12 | Evidence block P8 |
-| P9 | Game-feel + UX polish | pending | — | — |
+| P9 | Game-feel + UX polish | in progress | +20 (core) | Core evidence in the status doc; UI pending |
 | P10 | Onboarding | pending | — | — |
 | P11 | Audio | pending | — | — |
 | P12 | Economy rebalance | complete | +14 | Evidence block P12 |
