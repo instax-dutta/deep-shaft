@@ -24,6 +24,15 @@ import { prestigePointsForRun } from './prestigeUpgrades.js';
 /** Keeps accumulated floating-point dust out of a number the player reads. */
 const GAIN_PRECISION = 6;
 
+/**
+ * Minimum multiplier gain per prestige.
+ *
+ * A run that has barely crossed the threshold would otherwise round to +0.25 - a full reset for a
+ * barely perceptible reward, which is exactly the "prestige feels automatic and pointless" failure.
+ * The floor keeps every retirement worth at least x2, while longer runs outgrow it immediately.
+ */
+const MIN_GAIN = 1;
+
 const REASON_BELOW_THRESHOLD = 'below_threshold';
 
 function round(value) {
@@ -49,7 +58,8 @@ export function prestigeGain(state) {
   }
 
   const { lifetimeScale, multiplierPerScale } = config.prestige;
-  return round(M.mul(M.div(runEarnings(state), lifetimeScale), multiplierPerScale));
+  const linear = M.mul(M.div(runEarnings(state), lifetimeScale), multiplierPerScale);
+  return round(M.max(MIN_GAIN, linear));
 }
 
 export function canPrestige(state) {

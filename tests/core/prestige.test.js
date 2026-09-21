@@ -6,6 +6,7 @@ import {
   prestigeGain,
   prestigePreview,
   prestigeProgress,
+  prestigeThreshold,
 } from '../../src/core/prestige.js';
 import { M } from '../../src/core/numbers/magnitude.js';
 import { creditEarnings } from '../../src/core/resources.js';
@@ -71,8 +72,9 @@ describe('prestige eligibility', () => {
 
 describe('prestige multiplier', () => {
   it('scales the reward with how far the run got, not as a flat bonus', () => {
-    const modest = mineWithEarnings(THRESHOLD);
-    const deep = mineWithEarnings(THRESHOLD * 4);
+    // Both runs sit above the +1 floor, where the curve is purely linear again.
+    const modest = mineWithEarnings(THRESHOLD * 4);
+    const deep = mineWithEarnings(THRESHOLD * 16);
 
     expect(prestigeGain(modest)).toBeGreaterThan(0);
     expect(prestigeGain(deep)).toBeCloseTo(prestigeGain(modest) * 4, 6);
@@ -248,5 +250,24 @@ describe('prestige preview', () => {
     prestigePreview(state);
 
     expect(state).toEqual(before);
+  });
+});
+
+describe('first-prestige floor', () => {
+  it('a run that just crossed the threshold grants at least +1 multiplier (x2 total)', () => {
+    const state = createInitialState();
+    creditEarnings(state, prestigeThreshold() * 1.05);
+
+    const gain = prestigeGain(state);
+
+    expect(gain).toBeGreaterThanOrEqual(1);
+  });
+
+  it('the floor does not change the curve once the run outgrows it', () => {
+    const state = createInitialState();
+    creditEarnings(state, 10_000_000);
+
+    // 10M/1M * 0.25 = 2.5 -> rounds to 2.5, above the floor.
+    expect(prestigeGain(state)).toBe(2.5);
   });
 });
