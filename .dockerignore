@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-harness
+screenshots
+.git
+tests
+docs
+*.md

@@ -29,6 +29,12 @@
 - Reject invalid player actions with structured results rather than throwing for normal gameplay validation failures.
 - Keep UI copy clear and non-silent for penalties, offline gains, and reset actions.
 
+## Deployment
+- `README.md` owns the run, build, and deployment story (Vercel, Netlify, Cloudflare Pages,
+  GitHub Pages, Docker, and generic static hosts). Keep deploy targets in sync with
+  `tests/deploy/deploy.test.js`, which pins the build command, the output directory, and the
+  cache-header decisions as a file contract.
+
 ## Verification
 - `npm test -- --run` runs the complete Vitest suite.
 - `npm run build` verifies the production bundle.
